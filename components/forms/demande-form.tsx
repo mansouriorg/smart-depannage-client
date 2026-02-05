@@ -49,30 +49,30 @@ export function DemandeForm() {
   // --- ÉCRAN DE SUCCÈS ---
   if (isSuccess) {
     return (
-      <Card className="w-full max-w-lg mx-auto border-stone-200 bg-white shadow-2xl shadow-blue-900/10 overflow-hidden">
-        {/* Bandeau supérieur vert */}
-        <div className="h-2 w-full bg-green-500" />
+      <Card className="w-full max-w-lg mx-auto border-[#D4AF37]/30 bg-white shadow-2xl shadow-[#D4AF37]/10 overflow-hidden">
+        {/* Bandeau supérieur Or */}
+        <div className="h-2 w-full bg-gradient-to-r from-[#D4AF37] to-[#B69121]" />
         
         <CardContent className="pt-10 pb-10 text-center space-y-6">
-          <div className="mx-auto h-20 w-20 bg-green-50 text-green-600 rounded-full flex items-center justify-center border-4 border-green-100">
+          <div className="mx-auto h-20 w-20 bg-[#D4AF37]/10 text-[#B69121] rounded-full flex items-center justify-center border-4 border-[#D4AF37]/20">
             <CheckCircle2 className="h-10 w-10" />
           </div>
           
           <div className="space-y-2">
             <h3 className="text-2xl font-bold text-blue-950">Demande confirmée !</h3>
             <p className="text-stone-600 max-w-xs mx-auto">
-              Votre signalement a été transmis à notre équipe technique. Un expert va vous contacter d'ici 15 minutes.
+              Votre signalement a été transmis. Un expert va vous contacter d'ici <span className="font-bold text-[#B69121]">15 minutes</span>.
             </p>
           </div>
 
-          <div className="p-4 bg-stone-50 rounded-lg border border-stone-100 text-sm text-stone-500">
+          <div className="p-4 bg-stone-50 rounded-lg border border-[#D4AF37]/20 text-sm text-stone-500">
             Gardez votre téléphone à proximité, nous allons vous appeler sur le numéro indiqué.
           </div>
 
           <Button 
             onClick={() => window.location.reload()} 
             variant="outline" 
-            className="mt-4 border-stone-200 hover:bg-stone-50 text-stone-700 w-full"
+            className="mt-4 border-stone-200 hover:border-[#D4AF37] hover:text-[#B69121] w-full"
           >
             Faire une nouvelle demande
           </Button>
@@ -83,7 +83,7 @@ export function DemandeForm() {
 
   // --- FORMULAIRE ---
   return (
-    <Card className="w-full max-w-lg mx-auto shadow-2xl shadow-blue-900/10 border-stone-200 bg-white">
+    <Card className="w-full max-w-lg mx-auto shadow-2xl shadow-[#D4AF37]/10 border-stone-200 bg-white">
       <CardHeader className="space-y-1 pb-6 border-b border-stone-100 bg-stone-50/50 rounded-t-xl">
         <CardTitle className="text-2xl font-bold text-blue-950">
           Signaler un problème
@@ -98,7 +98,7 @@ export function DemandeForm() {
           
           {/* 1. SÉLECTION DU TYPE */}
           <div className="space-y-4">
-            <Label className="text-stone-700 font-semibold text-sm uppercase tracking-wide">
+            <Label className="text-[#B69121] font-bold text-xs uppercase tracking-wider">
               Type de problème
             </Label>
             <div className="grid grid-cols-2 gap-4">
@@ -125,18 +125,18 @@ export function DemandeForm() {
                     key={type}
                     onClick={() => setValue("type", type)}
                     className={cn(
-                      "cursor-pointer flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-200",
-                      // STYLE SÉLECTIONNÉ : Bordure Bleu Nuit, Fond léger, Texte foncé
+                      "cursor-pointer flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-300",
+                      // STYLE SÉLECTIONNÉ : Bordure OR, Fond Or très léger, Texte Or foncé
                       isSelected 
-                        ? "border-blue-900 bg-blue-50/50 text-blue-950 shadow-md ring-1 ring-blue-900/10" 
-                        // STYLE NON SÉLECTIONNÉ : Gris pierre, hover beige
-                        : "border-stone-200 bg-white text-stone-500 hover:border-amber-400/50 hover:bg-stone-50 hover:text-stone-700"
+                        ? "border-[#D4AF37] bg-[#D4AF37]/5 text-[#B69121] shadow-lg shadow-[#D4AF37]/10 scale-[1.02]" 
+                        // STYLE NON SÉLECTIONNÉ : Gris pierre
+                        : "border-stone-200 bg-white text-stone-400 hover:border-[#D4AF37]/40 hover:bg-stone-50 hover:text-[#B69121]"
                     )}
                   >
                     <Icon className={cn(
                       "h-8 w-8 mb-3 transition-colors",
-                      // L'icône devient Ambre (Doré) quand sélectionnée
-                      isSelected ? "text-amber-500 fill-amber-500/10" : "text-stone-400"
+                      // L'icône devient Or quand sélectionnée
+                      isSelected ? "text-[#D4AF37] fill-[#D4AF37]/20" : "text-stone-300 group-hover:text-[#D4AF37]"
                     )} />
                     <span className="font-bold text-sm">{label}</span>
                   </div>
@@ -152,7 +152,8 @@ export function DemandeForm() {
             <Textarea 
               id="desc" 
               placeholder="Ex: Le robinet de la cuisine fuit abondamment..." 
-              className="min-h-[100px] border-stone-200 focus-visible:ring-blue-900 bg-stone-50/30"
+              // Focus ring en OR
+              className="min-h-[100px] border-stone-200 focus-visible:ring-[#D4AF37] focus-visible:border-[#D4AF37] bg-stone-50/30"
               {...register("description")}
             />
             {errors.description && <p className="text-red-500 text-sm">{errors.description.message}</p>}
@@ -164,7 +165,8 @@ export function DemandeForm() {
             <Input 
               id="address" 
               placeholder="Ex: 12 Rue de la République, Tunis" 
-              className="h-11 border-stone-200 focus-visible:ring-blue-900 bg-stone-50/30"
+              // Focus ring en OR
+              className="h-11 border-stone-200 focus-visible:ring-[#D4AF37] focus-visible:border-[#D4AF37] bg-stone-50/30"
               {...register("address")}
             />
             {errors.address && <p className="text-red-500 text-sm">{errors.address.message}</p>}
@@ -177,7 +179,7 @@ export function DemandeForm() {
               <Input 
                 id="name" 
                 placeholder="Mohamed Ali" 
-                className="h-11 border-stone-200 focus-visible:ring-blue-900 bg-stone-50/30"
+                className="h-11 border-stone-200 focus-visible:ring-[#D4AF37] focus-visible:border-[#D4AF37] bg-stone-50/30"
                 {...register("contactName")} 
               />
               {errors.contactName && <p className="text-red-500 text-sm">{errors.contactName.message}</p>}
@@ -189,7 +191,7 @@ export function DemandeForm() {
                 id="phone" 
                 type="tel" 
                 placeholder="20 123 456" 
-                className="h-11 border-stone-200 focus-visible:ring-blue-900 bg-stone-50/30"
+                className="h-11 border-stone-200 focus-visible:ring-[#D4AF37] focus-visible:border-[#D4AF37] bg-stone-50/30"
                 {...register("contactPhone")} 
               />
               {errors.contactPhone && <p className="text-red-500 text-sm">{errors.contactPhone.message}</p>}
@@ -201,7 +203,8 @@ export function DemandeForm() {
         <CardFooter className="pb-8 pt-2">
           <Button 
             type="submit" 
-            className="w-full text-lg h-14 bg-blue-900 hover:bg-blue-800 text-white shadow-xl shadow-blue-900/20 transition-all hover:scale-[1.01]" 
+            // LE GRADIENT OR "LUXE"
+            className="w-full text-lg h-14 bg-gradient-to-r from-[#D4AF37] to-[#B69121] hover:from-[#E5C04A] hover:to-[#C7A02C] text-white shadow-xl shadow-[#D4AF37]/20 border-t border-[#FFF5D1]/30 transition-all hover:scale-[1.01]" 
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -209,7 +212,7 @@ export function DemandeForm() {
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Envoi en cours...
               </>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 font-bold">
                 <span>Envoyer la demande</span>
                 <Send className="h-5 w-5" />
               </div>
