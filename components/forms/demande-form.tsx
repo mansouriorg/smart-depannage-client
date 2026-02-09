@@ -1,4 +1,3 @@
-// src/components/forms/demande-form.tsx
 "use client";
 
 import { useState } from "react";
@@ -6,20 +5,32 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Wrench, Zap, Key, HelpCircle, Loader2, Send, CheckCircle2 } from "lucide-react";
 
-// Import des composants UI
+// 1. Import your API helper
+import api from "@/lib/api"; 
+// import { useRouter } from "next/navigation"; // Optional: if you want to redirect
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-
-// Import du schéma et des types
 import { demandeSchema, type DemandeFormValues, PROBLEM_TYPES } from "@/lib/schemas/demande-schema";
 import { cn } from "@/lib/utils";
+
+// 2. Mapping helper: Frontend (Activity) -> Backend (Worker Title)
+const mapTypeToBackend = (type: string) => {
+  switch (type) {
+    case "PLOMBERIE": return "PLOMBIER";
+    case "ELECTRICITE": return "ELECTRICIEN";
+    case "SERRURERIE": return "SERRURIER";
+    default: return "AUTRE";
+  }
+};
 
 export function DemandeForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  // const router = useRouter(); 
 
   const {
     register,
@@ -31,7 +42,8 @@ export function DemandeForm() {
     resolver: zodResolver(demandeSchema),
     defaultValues: {
       type: "PLOMBERIE",
-      contactEmail: "",
+      contactName: "", 
+      contactPhone: "", 
     },
   });
 
@@ -39,18 +51,36 @@ export function DemandeForm() {
 
   async function onSubmit(data: DemandeFormValues) {
     setIsSubmitting(true);
-    // Simulation API
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    console.log("Données envoyées :", data);
-    setIsSubmitting(false);
-    setIsSuccess(true);
+    try {
+      // 3. Prepare Payload for NestJS
+      // We explicitly include contactName/Phone so the backend can handle Guest Users
+      const payload = {
+        serviceType: mapTypeToBackend(data.type),
+        description: data.description,
+        address: data.address,
+        contactName: data.contactName, // Important for Guests
+        contactPhone: data.contactPhone, // Important for Guests
+      };
+
+      // 4. Send Request
+      // If logged in, the token in cookies/localStorage is used automatically by api.ts.
+      // If NOT logged in, the backend uses contactPhone to create a guest account.
+      const response = await api.post('/interventions', payload);
+      
+      console.log("Success:", response.data);
+      setIsSuccess(true);
+    } catch (error) {
+      console.error("Erreur lors de l'envoi:", error);
+      alert("Une erreur est survenue lors de l'envoi de la demande.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
-  // --- ÉCRAN DE SUCCÈS ---
+  // --- SUCCESS SCREEN ---
   if (isSuccess) {
     return (
       <Card className="w-full max-w-lg mx-auto border-[#D4AF37]/30 bg-white shadow-2xl shadow-[#D4AF37]/10 overflow-hidden">
-        {/* Bandeau supérieur Or */}
         <div className="h-2 w-full bg-gradient-to-r from-[#D4AF37] to-[#B69121]" />
         
         <CardContent className="pt-10 pb-10 text-center space-y-6">
@@ -81,7 +111,7 @@ export function DemandeForm() {
     );
   }
 
-  // --- FORMULAIRE ---
+  // --- FORM DISPLAY ---
   return (
     <Card className="w-full max-w-lg mx-auto shadow-2xl shadow-[#D4AF37]/10 border-stone-200 bg-white">
       <CardHeader className="space-y-1 pb-6 border-b border-stone-100 bg-stone-50/50 rounded-t-xl">
@@ -105,7 +135,6 @@ export function DemandeForm() {
               {PROBLEM_TYPES.map((type) => {
                 const isSelected = selectedType === type;
 
-                // Configuration icônes
                 const Icon = {
                   PLOMBERIE: Wrench,
                   ELECTRICITE: Zap,
@@ -126,16 +155,13 @@ export function DemandeForm() {
                     onClick={() => setValue("type", type)}
                     className={cn(
                       "cursor-pointer flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-300",
-                      // STYLE SÉLECTIONNÉ : Bordure OR, Fond Or très léger, Texte Or foncé
                       isSelected 
                         ? "border-[#D4AF37] bg-[#D4AF37]/5 text-[#B69121] shadow-lg shadow-[#D4AF37]/10 scale-[1.02]" 
-                        // STYLE NON SÉLECTIONNÉ : Gris pierre
                         : "border-stone-200 bg-white text-stone-400 hover:border-[#D4AF37]/40 hover:bg-stone-50 hover:text-[#B69121]"
                     )}
                   >
                     <Icon className={cn(
                       "h-8 w-8 mb-3 transition-colors",
-                      // L'icône devient Or quand sélectionnée
                       isSelected ? "text-[#D4AF37] fill-[#D4AF37]/20" : "text-stone-300 group-hover:text-[#D4AF37]"
                     )} />
                     <span className="font-bold text-sm">{label}</span>
@@ -152,7 +178,6 @@ export function DemandeForm() {
             <Textarea 
               id="desc" 
               placeholder="Ex: Le robinet de la cuisine fuit abondamment..." 
-              // Focus ring en OR
               className="min-h-[100px] border-stone-200 focus-visible:ring-[#D4AF37] focus-visible:border-[#D4AF37] bg-stone-50/30"
               {...register("description")}
             />
@@ -165,7 +190,6 @@ export function DemandeForm() {
             <Input 
               id="address" 
               placeholder="Ex: 12 Rue de la République, Tunis" 
-              // Focus ring en OR
               className="h-11 border-stone-200 focus-visible:ring-[#D4AF37] focus-visible:border-[#D4AF37] bg-stone-50/30"
               {...register("address")}
             />
@@ -203,7 +227,6 @@ export function DemandeForm() {
         <CardFooter className="pb-8 pt-2">
           <Button 
             type="submit" 
-            // LE GRADIENT OR "LUXE"
             className="w-full text-lg h-14 bg-gradient-to-r from-[#D4AF37] to-[#B69121] hover:from-[#E5C04A] hover:to-[#C7A02C] text-white shadow-xl shadow-[#D4AF37]/20 border-t border-[#FFF5D1]/30 transition-all hover:scale-[1.01]" 
             disabled={isSubmitting}
           >
