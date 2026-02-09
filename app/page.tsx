@@ -1,4 +1,3 @@
-// src/app/page.tsx
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { 
@@ -7,8 +6,6 @@ import {
   Key, 
   ShieldCheck, 
   ArrowRight, 
-  CheckCircle2, 
-  MapPin, 
   Star
 } from "lucide-react";
 
@@ -35,9 +32,13 @@ export default function Home() {
           </nav>
           
           <div className="flex gap-4 items-center">
-            <Link href="/login" className="hidden sm:block">
-               <Button variant="ghost" size="sm" className="text-stone-600 hover:text-[#B69121] hover:bg-[#D4AF37]/10">Espace Pro</Button>
+            {/* ✅ MODIFICATION : Lien "Devenir Technicien" */}
+            <Link href="/rejoindre" className="hidden sm:block">
+               <Button variant="ghost" size="sm" className="text-stone-600 hover:text-[#B69121] hover:bg-[#D4AF37]/10 font-bold">
+                 Devenir Technicien
+               </Button>
             </Link>
+            
             <Link href="/demande">
               {/* BOUTON HEADER : OR */}
               <Button size="sm" className="bg-gradient-to-r from-[#D4AF37] to-[#B69121] hover:from-[#E5C04A] hover:to-[#C7A02C] text-white shadow-md shadow-[#D4AF37]/30 border-none font-semibold">
