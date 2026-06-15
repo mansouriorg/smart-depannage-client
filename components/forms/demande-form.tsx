@@ -3,11 +3,10 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Wrench, Zap, Key, HelpCircle, Loader2, Send, CheckCircle2 } from "lucide-react";
+import { Wrench, Zap, Key, HelpCircle, Loader2, Send, CheckCircle2, ArrowRight } from "lucide-react";
 
-// 1. Import your API helper
 import api from "@/lib/api"; 
-// import { useRouter } from "next/navigation"; // Optional: if you want to redirect
+import { useRouter } from "next/navigation"; 
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +16,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { demandeSchema, type DemandeFormValues, PROBLEM_TYPES } from "@/lib/schemas/demande-schema";
 import { cn } from "@/lib/utils";
 
-// 2. Mapping helper: Frontend (Activity) -> Backend (Worker Title)
 const mapTypeToBackend = (type: string) => {
   switch (type) {
     case "PLOMBERIE": return "PLOMBIER";
@@ -30,13 +28,18 @@ const mapTypeToBackend = (type: string) => {
 export function DemandeForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  // const router = useRouter(); 
+  
+  // State to hold the tracking details so the success screen can use them
+  const [trackingInfo, setTrackingInfo] = useState<{ id: string; token: string } | null>(null);
+  
+  const router = useRouter(); 
 
   const {
     register,
     handleSubmit,
     setValue,
     watch,
+    reset,
     formState: { errors },
   } = useForm<DemandeFormValues>({
     resolver: zodResolver(demandeSchema),
@@ -52,23 +55,23 @@ export function DemandeForm() {
   async function onSubmit(data: DemandeFormValues) {
     setIsSubmitting(true);
     try {
-      // 3. Prepare Payload for NestJS
-      // We explicitly include contactName/Phone so the backend can handle Guest Users
       const payload = {
         serviceType: mapTypeToBackend(data.type),
         description: data.description,
         address: data.address,
-        contactName: data.contactName, // Important for Guests
-        contactPhone: data.contactPhone, // Important for Guests
+        contactName: data.contactName, 
+        contactPhone: data.contactPhone, 
       };
 
-      // 4. Send Request
-      // If logged in, the token in cookies/localStorage is used automatically by api.ts.
-      // If NOT logged in, the backend uses contactPhone to create a guest account.
       const response = await api.post('/interventions', payload);
       
-      console.log("Success:", response.data);
+      // Save the credentials and trigger the success screen
+      setTrackingInfo({
+        id: response.data.id,
+        token: response.data.rawTrackingToken
+      });
       setIsSuccess(true);
+      
     } catch (error) {
       console.error("Erreur lors de l'envoi:", error);
       alert("Une erreur est survenue lors de l'envoi de la demande.");
@@ -78,7 +81,7 @@ export function DemandeForm() {
   }
 
   // --- SUCCESS SCREEN ---
-  if (isSuccess) {
+  if (isSuccess && trackingInfo) {
     return (
       <Card className="w-full max-w-lg mx-auto border-[#D4AF37]/30 bg-white shadow-2xl shadow-[#D4AF37]/10 overflow-hidden">
         <div className="h-2 w-full bg-gradient-to-r from-[#D4AF37] to-[#B69121]" />
@@ -91,21 +94,35 @@ export function DemandeForm() {
           <div className="space-y-2">
             <h3 className="text-2xl font-bold text-blue-950">Demande confirmée !</h3>
             <p className="text-stone-600 max-w-xs mx-auto">
-              Votre signalement a été transmis. Un expert va vous contacter d'ici <span className="font-bold text-[#B69121]">15 minutes</span>.
+              Votre signalement a été transmis. Vous pouvez maintenant suivre l'arrivée de votre technicien en temps réel.
             </p>
           </div>
 
-          <div className="p-4 bg-stone-50 rounded-lg border border-[#D4AF37]/20 text-sm text-stone-500">
-            Gardez votre téléphone à proximité, nous allons vous appeler sur le numéro indiqué.
-          </div>
+          <div className="flex flex-col space-y-3 pt-4">
+            {/* Primary Action: Go to the Tracking Page */}
+            <Button 
+              onClick={() => router.push(`/demande/status?id=${trackingInfo.id}&token=${trackingInfo.token}`)}
+              className="w-full text-lg h-14 bg-gradient-to-r from-[#D4AF37] to-[#B69121] hover:from-[#E5C04A] hover:to-[#C7A02C] text-white shadow-xl shadow-[#D4AF37]/20 border-t border-[#FFF5D1]/30 transition-all hover:scale-[1.01]" 
+            >
+              <div className="flex items-center justify-center gap-2 font-bold">
+                <span>Suivre ma demande</span>
+                <ArrowRight className="h-5 w-5" />
+              </div>
+            </Button>
 
-          <Button 
-            onClick={() => window.location.reload()} 
-            variant="outline" 
-            className="mt-4 border-stone-200 hover:border-[#D4AF37] hover:text-[#B69121] w-full"
-          >
-            Faire une nouvelle demande
-          </Button>
+            {/* Secondary Action: Reset the form */}
+            <Button 
+              onClick={() => {
+                reset();
+                setIsSuccess(false);
+                setTrackingInfo(null);
+              }} 
+              variant="outline" 
+              className="mt-4 border-stone-200 hover:border-[#D4AF37] hover:text-[#B69121] w-full h-14 font-bold"
+            >
+              Faire une nouvelle demande
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
