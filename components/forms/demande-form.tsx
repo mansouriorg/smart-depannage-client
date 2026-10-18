@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Wrench, Zap, Key, HelpCircle, Loader2, Send, CheckCircle2, ArrowRight } from "lucide-react";
+import { Wrench, Zap, Key, Hammer, Flame, Square, Snowflake, HelpCircle, Loader2, Send, CheckCircle2, ArrowRight } from "lucide-react";
 
 import api from "@/lib/api"; 
 import { useRouter } from "next/navigation"; 
@@ -15,14 +15,18 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { demandeSchema, type DemandeFormValues, PROBLEM_TYPES } from "@/lib/schemas/demande-schema";
 import { cn } from "@/lib/utils";
+import { TRADES, type TradeCode } from "@/lib/shared";
 
-const mapTypeToBackend = (type: string) => {
-  switch (type) {
-    case "PLOMBERIE": return "PLOMBIER";
-    case "ELECTRICITE": return "ELECTRICIEN";
-    case "SERRURERIE": return "SERRURIER";
-    default: return "AUTRE";
-  }
+// Un pictogramme par métier; `Record<TradeCode, …>` : un métier ajouté au serveur arrête la compilation ici (P1-10).
+const TRADE_ICONS: Record<TradeCode, typeof Wrench> = {
+  PLOMBIER: Wrench,
+  ELECTRICIEN: Zap,
+  SERRURIER: Key,
+  MENUISIER: Hammer,
+  CHAUFFAGISTE: Flame,
+  VITRIER: Square,
+  CLIMATICIEN: Snowflake,
+  AUTRE: HelpCircle,
 };
 
 export function DemandeForm() {
@@ -44,7 +48,7 @@ export function DemandeForm() {
   } = useForm<DemandeFormValues>({
     resolver: zodResolver(demandeSchema),
     defaultValues: {
-      type: "PLOMBERIE",
+      type: "PLOMBIER",
       contactName: "", 
       contactPhone: "", 
     },
@@ -56,7 +60,7 @@ export function DemandeForm() {
     setIsSubmitting(true);
     try {
       const payload = {
-        serviceType: mapTypeToBackend(data.type),
+        serviceType: data.type,
         description: data.description,
         address: data.address,
         contactName: data.contactName, 
@@ -152,19 +156,8 @@ export function DemandeForm() {
               {PROBLEM_TYPES.map((type) => {
                 const isSelected = selectedType === type;
 
-                const Icon = {
-                  PLOMBERIE: Wrench,
-                  ELECTRICITE: Zap,
-                  SERRURERIE: Key,
-                  AUTRE: HelpCircle,
-                }[type];
-                
-                const label = {
-                  PLOMBERIE: "Plomberie",
-                  ELECTRICITE: "Électricité",
-                  SERRURERIE: "Serrurerie",
-                  AUTRE: "Autre",
-                }[type];
+                const Icon = TRADE_ICONS[type];
+                const label = TRADES[type].service;
 
                 return (
                   <div

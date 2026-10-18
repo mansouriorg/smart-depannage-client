@@ -13,6 +13,7 @@ import {
   Clock 
 } from "lucide-react";
 import api from "@/lib/api"; // ✅ Use your API helper
+import { TRADE_LIST } from "@/lib/shared";
 
 export default function JoinPage() {
   const router = useRouter();
@@ -220,12 +221,12 @@ export default function JoinPage() {
                         onChange={handleChange}
                         className="w-full appearance-none bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37]"
                       >
-                        <option value="Plombier">Plombier</option>
-                        <option value="Électricien">Électricien</option>
-                        <option value="Serrurier">Serrurier</option>
-                        <option value="Chauffagiste">Chauffagiste</option>
-                        <option value="Vitrier">Vitrier</option>
-                        <option value="Climatisation">Climatisation</option>
+                        {/* Les métiers du serveur (P1-10): un mot qu'il ne connaît pas est refusé. */}
+                        {TRADE_LIST.map((trade) => (
+                          <option key={trade.code} value={trade.label}>
+                            {trade.code === "AUTRE" ? "Autre / polyvalent" : trade.label}
+                          </option>
+                        ))}
                       </select>
                       {/* Chevron custom */}
                       <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">

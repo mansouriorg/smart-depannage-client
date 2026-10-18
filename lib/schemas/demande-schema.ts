@@ -1,13 +1,10 @@
 // src/lib/schemas/demande-schema.ts
 import { z } from "zod";
+import { TRADE_CODES } from "@/lib/shared";
 
-// 1. Définition des types
-export const PROBLEM_TYPES = [
-  "PLOMBERIE",
-  "ELECTRICITE",
-  "SERRURERIE",
-  "AUTRE",
-] as const;
+// 1. Définition des types: les métiers du serveur (P1-10). Ce sont aussi les types de service d'une demande,
+// il n'y a donc plus de table de correspondance à tenir à jour ici.
+export const PROBLEM_TYPES = TRADE_CODES;
 
 export const demandeSchema = z.object({
   // CORRECTION: On utilise la propriété 'error' qui est acceptée par votre version
