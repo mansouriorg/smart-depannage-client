@@ -1,0 +1,22 @@
+/* Made from tokens.json by `npm run tokens` in smart-depannage-shared. Do not edit. */
+@theme {
+  --color-brand: #d4af37;
+  --color-gold-50: #fffbf0;
+  --color-gold-100: #fff5d1;
+  --color-gold-200: #f3dfa2;
+  --color-gold-400: #e5c04a;
+  --color-gold-500: #d4af37;
+  --color-gold-600: #c7a02c;
+  --color-gold-700: #b69121;
+  --color-gold-800: #997b19;
+  --color-gold-900: #8a6c12;
+  --color-navy-800: #1a1c2e;
+  --color-navy-900: #0f111a;
+  --color-navy-950: #0a0c12;
+  --color-status-waiting: #f59e0b;
+  --color-status-info: #0ea5e9;
+  --color-status-active: #8b5cf6;
+  --color-status-success: #10b981;
+  --color-status-warning: #f97316;
+  --color-status-danger: #ef4444;
+}
