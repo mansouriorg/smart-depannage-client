@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { 
   ShieldCheck, 
   CheckCircle2, 
@@ -10,51 +9,97 @@ import {
   Loader2, 
   Briefcase, 
   Wallet, 
-  Clock 
+  Clock,
+  FileText
 } from "lucide-react";
 import api from "@/lib/api"; // ✅ Use your API helper
 import { TRADE_LIST } from "@/lib/shared";
+import {
+  type ApplicationFiles,
+  type ApplicationForm,
+  DOCUMENT_ACCEPT,
+  EMPTY_FORM,
+  MAX_DOCUMENT_MB,
+  applicationFormData,
+  applicationProblems,
+  serverProblems,
+  toggled,
+} from "@/lib/apply";
+
+interface ZoneChoice {
+  id: number;
+  name: string;
+  city: string | null;
+}
 
 export default function JoinPage() {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState<string[]>([]);
 
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    specialty: "Plombier", // Default value
-    experience: 0,
-    description: "",
-  });
+  const [formData, setFormData] = useState<ApplicationForm>(EMPTY_FORM);
+  const [files, setFiles] = useState<ApplicationFiles>({ identity: null, company: null, insurance: null });
 
-  const handleChange = (e: any) => {
+  // The zones come from the platform's list (the governorates): an applicant picks, never types.
+  const [zones, setZones] = useState<ZoneChoice[] | null>(null);
+  const [zonesFailed, setZonesFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    api
+      .get<ZoneChoice[] | { data: ZoneChoice[] }>("/service-zones")
+      .then((response) => {
+        if (cancelled) return;
+
+        const body = response.data;
+
+        setZones(Array.isArray(body) ? body : body.data);
+      })
+      .catch(() => {
+        if (!cancelled) setZonesFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === "experience" ? Number(value) : value,
-    }));
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const pickFile = (key: keyof ApplicationFiles) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFiles((prev) => ({ ...prev, [key]: e.target.files?.[0] ?? null }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const problems = applicationProblems(formData, files);
+
+    if (problems.length) {
+      setErrors(problems);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+
+      return;
+    }
+
     setIsLoading(true);
-    setError("");
+    setErrors([]);
 
     try {
-      // 🚀 POST to your NestJS endpoint
-      await api.post("/artisan-applications", formData);
+      // One multipart request: the fields as JSON in `data`, the documents as files.
+      await api.post("/artisans/apply", applicationFormData(formData, files), {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       setIsSuccess(true);
       window.scrollTo(0, 0); // Scroll to top to see success message
-    } catch (err: any) {
-      console.error("Application failed:", err);
-      if (err.response?.status === 400) {
-        setError("Cet email a déjà envoyé une candidature.");
-      } else {
-        setError("Une erreur est survenue. Veuillez réessayer.");
-      }
+    } catch (err) {
+      // The server's own sentences (an e-mail already used, a file it cannot read...), one per line.
+      setErrors(serverProblems(err, "Une erreur est survenue. Veuillez réessayer."));
     } finally {
       setIsLoading(false);
     }
@@ -153,7 +198,7 @@ export default function JoinPage() {
                 <h2 className="text-2xl font-bold text-blue-950">Candidature envoyée !</h2>
                 <p className="text-stone-600">
                   Merci {formData.name}. Notre équipe va examiner votre profil. <br/>
-                  Si votre candidature est retenue, vous recevrez vos accès sous 24h.
+                  Si votre candidature est retenue, vous recevrez par e-mail un lien pour choisir votre mot de passe.
                 </p>
                 <Link href="/">
                   <button className="mt-8 w-full bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold py-3 rounded-xl transition-colors">
@@ -171,14 +216,14 @@ export default function JoinPage() {
 
                 {/* Nom Complet */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-stone-500 uppercase">Nom de l'entreprise / Artisan</label>
+                  <label className="text-xs font-bold text-stone-500 uppercase">Nom complet</label>
                   <input
                     name="name"
                     required
                     value={formData.name}
                     onChange={handleChange}
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
-                    placeholder="Ex: Tounsi Plomberie"
+                    placeholder="Ex: Karim Tounsi"
                   />
                 </div>
 
@@ -192,7 +237,7 @@ export default function JoinPage() {
                       required
                       value={formData.email}
                       onChange={handleChange}
-                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37]"
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
                       placeholder="contact@pro.com"
                     />
                   </div>
@@ -204,75 +249,159 @@ export default function JoinPage() {
                       required
                       value={formData.phone}
                       onChange={handleChange}
-                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37]"
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
                       placeholder="+216 ..."
                     />
                   </div>
                 </div>
 
-                {/* Spécialité & Expérience */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-stone-500 uppercase">Spécialité</label>
-                    <div className="relative">
-                      <select
-                        name="specialty"
-                        value={formData.specialty}
-                        onChange={handleChange}
-                        className="w-full appearance-none bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37]"
-                      >
-                        {/* Les métiers du serveur (P1-10): un mot qu'il ne connaît pas est refusé. */}
-                        {TRADE_LIST.map((trade) => (
-                          <option key={trade.code} value={trade.label}>
-                            {trade.code === "AUTRE" ? "Autre / polyvalent" : trade.label}
-                          </option>
-                        ))}
-                      </select>
-                      {/* Chevron custom */}
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-stone-500 uppercase">Années d'expérience</label>
-                    <input
-                      name="experience"
-                      type="number"
-                      min="0"
-                      required
-                      value={formData.experience}
-                      onChange={handleChange}
-                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37]"
-                      placeholder="Ex: 5"
-                    />
+                {/* Métiers: plusieurs, le premier choisi est le principal */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-stone-500 uppercase">
+                    Vos métiers <span className="font-normal normal-case text-stone-400">(le premier choisi est le principal)</span>
+                  </label>
+                  {/* Les métiers du serveur (P1-10): un mot qu'il ne connaît pas est refusé. */}
+                  <div className="flex flex-wrap gap-2">
+                    {TRADE_LIST.map((trade) => {
+                      const on = formData.trades.includes(trade.label);
+                      const main = formData.trades[0] === trade.label;
+
+                      return (
+                        <button
+                          type="button"
+                          key={trade.code}
+                          aria-pressed={on}
+                          onClick={() => setFormData((prev) => ({ ...prev, trades: toggled(prev.trades, trade.label) }))}
+                          className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                            on ? "border-blue-950 bg-blue-950 text-white" : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
+                          }`}
+                        >
+                          {main ? "★ " : ""}
+                          {trade.code === "AUTRE" ? "Autre / polyvalent" : trade.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
+
+                {/* Expérience */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-stone-500 uppercase">Années d'expérience</label>
+                  <input
+                    name="yearsExperience"
+                    type="number"
+                    min="0"
+                    max="60"
+                    step="1"
+                    required
+                    value={formData.yearsExperience}
+                    onChange={handleChange}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all sm:w-40"
+                    placeholder="Ex: 5"
+                  />
+                </div>
+
+                {/* Zones d'intervention */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-stone-500 uppercase">
+                    Où acceptez-vous de travailler ? <span className="font-normal normal-case text-stone-400">(une zone au moins)</span>
+                  </label>
+
+                  {zonesFailed ? (
+                    <p className="text-sm text-red-600">La liste des zones n'a pas pu être chargée. Rechargez la page.</p>
+                  ) : zones === null ? (
+                    <p className="flex items-center gap-2 text-sm text-stone-400"><Loader2 className="h-4 w-4 animate-spin" /> Chargement…</p>
+                  ) : zones.length === 0 ? (
+                    <p className="text-sm text-red-600">Aucune zone n'est proposée pour le moment. Réessayez plus tard ou contactez-nous.</p>
+                  ) : (
+                    <div className="flex max-h-44 flex-wrap gap-2 overflow-y-auto rounded-xl border border-stone-100 bg-stone-50 p-2">
+                      {zones.map((zone) => {
+                        const on = formData.zoneIds.includes(zone.id);
+
+                        return (
+                          <button
+                            type="button"
+                            key={zone.id}
+                            aria-pressed={on}
+                            onClick={() => setFormData((prev) => ({ ...prev, zoneIds: toggled(prev.zoneIds, zone.id) }))}
+                            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                              on ? "border-[#B69121] bg-[#D4AF37] text-white" : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
+                            }`}
+                          >
+                            {zone.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Documents */}
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-stone-500 uppercase">
+                    Documents <span className="font-normal normal-case text-stone-400">(photo ou PDF, {MAX_DOCUMENT_MB} Mo max)</span>
+                  </label>
+
+                  {([
+                    ["identity", "Pièce d'identité (obligatoire)", true],
+                    ["company", "Document de l'entreprise (facultatif)", false],
+                    ["insurance", "Attestation d'assurance (facultatif)", false],
+                  ] as const).map(([key, label, required]) => (
+                    <div key={key} className="rounded-xl border border-dashed border-stone-300 bg-stone-50 p-3">
+                      <div className="mb-1.5 flex items-center gap-2 text-sm font-medium text-stone-700">
+                        <FileText className="h-4 w-4 text-[#B69121]" /> {label}
+                      </div>
+                      <input
+                        type="file"
+                        accept={DOCUMENT_ACCEPT}
+                        required={required}
+                        onChange={pickFile(key)}
+                        className="block w-full text-sm text-stone-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-950 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-blue-900"
+                      />
+                    </div>
+                  ))}
+                  <p className="text-xs text-stone-400">Vos documents ne sont vus que par notre équipe de vérification.</p>
+                </div>
+
+                {/* Entreprise (facultatif) */}
+                <details className="rounded-xl border border-stone-200 bg-white p-4">
+                  <summary className="cursor-pointer text-sm font-medium text-stone-600">Entreprise (facultatif)</summary>
+                  <div className="mt-4 space-y-4">
+                    <input name="companyName" value={formData.companyName} onChange={handleChange} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="Nom de l'entreprise" />
+                    <input name="companyNumber" value={formData.companyNumber} onChange={handleChange} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="Matricule fiscal / registre de commerce" />
+                    <input name="insuranceNumber" value={formData.insuranceNumber} onChange={handleChange} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="N° de police d'assurance" />
+                  </div>
+                </details>
 
                 {/* Description */}
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-stone-500 uppercase">Pourquoi vous ?</label>
                   <textarea
-                    name="description"
+                    name="bio"
                     rows={3}
-                    value={formData.description}
+                    maxLength={2000}
+                    value={formData.bio}
                     onChange={handleChange}
-                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37]"
-                    placeholder="Certifications, zones d'intervention..."
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
+                    placeholder="Certifications, spécialités, réalisations..."
                   />
                 </div>
 
-                {/* Message d'erreur */}
-                {error && (
-                  <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200 flex items-center gap-2">
-                     <ShieldCheck className="h-4 w-4" /> {error}
+                {/* Messages d'erreur */}
+                {errors.length > 0 && (
+                  <div role="alert" className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200 space-y-1">
+                    {errors.map((message) => (
+                      <div key={message} className="flex items-start gap-2">
+                        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /> <span>{message}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
 
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || zonesFailed || zones?.length === 0}
                   className="w-full bg-gradient-to-r from-[#D4AF37] to-[#B69121] hover:brightness-110 text-white font-bold py-4 rounded-xl shadow-lg shadow-[#D4AF37]/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
