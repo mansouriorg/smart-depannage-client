@@ -5,8 +5,7 @@ import {
   Zap, 
   Key, 
   ShieldCheck, 
-  ArrowRight, 
-  Star
+  ArrowRight
 } from "lucide-react";
 
 export default function Home() {
@@ -28,7 +27,7 @@ export default function Home() {
           <nav className="hidden md:flex gap-8 text-sm font-medium text-stone-600">
             <Link href="#services" className="hover:text-[#B69121] transition-colors">Services</Link>
             <Link href="#comment-ca-marche" className="hover:text-[#B69121] transition-colors">Comment ça marche</Link>
-            <Link href="#" className="hover:text-[#B69121] transition-colors">Avis clients</Link>
+            <Link href="/demande" className="hover:text-[#B69121] transition-colors">Suivre ma demande</Link>
           </nav>
           
           <div className="flex gap-4 items-center">
@@ -66,7 +65,7 @@ export default function Home() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D4AF37] opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-[#B69121]"></span>
                 </span>
-                Intervention rapide 24/7
+                Sans compte · Suivi par SMS
               </div>
               
               <h1 className="text-4xl font-extrabold tracking-tight text-blue-950 sm:text-5xl md:text-6xl leading-[1.1]">
@@ -78,8 +77,8 @@ export default function Home() {
               </h1>
               
               <p className="max-w-xl mx-auto lg:mx-0 text-lg text-stone-600 leading-relaxed">
-                Plomberie, Électricité, Serrurerie. Ne laissez pas le hasard décider. 
-                Nous localisons l'expert certifié le plus proche pour une intervention soignée.
+                Plomberie, Électricité, Serrurerie. Décrivez votre problème en trois étapes :
+                notre équipe examine votre demande et désigne un technicien. Vous suivez chaque étape depuis un lien reçu par SMS.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -89,19 +88,16 @@ export default function Home() {
                     Trouver un dépanneur <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
-                <Button variant="outline" size="lg" className="w-full sm:w-auto h-14 px-8 border-stone-300 bg-white hover:bg-stone-50 text-stone-700 font-medium">
-                  Voir les tarifs
-                </Button>
+                <Link href="#comment-ca-marche" className="w-full sm:w-auto">
+                  <Button variant="outline" size="lg" className="w-full h-14 px-8 border-stone-300 bg-white hover:bg-stone-50 text-stone-700 font-medium">
+                    Comment ça marche
+                  </Button>
+                </Link>
               </div>
               
-              <div className="pt-4 flex items-center justify-center lg:justify-start gap-4 text-sm text-stone-500">
-                <div className="flex items-center gap-1">
-                    {[1,2,3,4,5].map((i) => (
-                         <Star key={i} className="h-4 w-4 fill-[#D4AF37] text-[#D4AF37]" />
-                    ))}
-                </div>
-                <p><span className="font-bold text-[#997b19]">4.9/5</span> de satisfaction client.</p>
-              </div>
+              <p className="pt-4 text-sm text-stone-500">
+                Aucun compte à créer : votre numéro de téléphone suffit pour recevoir le lien de suivi.
+              </p>
             </div>
 
             {/* DROITE : VISUEL APP 3D (Gold Accents) */}
@@ -169,12 +165,11 @@ export default function Home() {
                        </div>
                        <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-center mb-0.5">
-                            <p className="text-sm font-bold text-white truncate">Sami B. (Plombier)</p>
-                            <span className="text-[10px] font-bold text-[#F3DFA2] bg-[#D4AF37]/20 px-1.5 py-0.5 rounded-full border border-[#D4AF37]/30">En route</span>
+                            <p className="text-sm font-bold text-white truncate">Technicien en route</p>
+                            <span className="text-[10px] font-bold text-[#F3DFA2] bg-[#D4AF37]/20 px-1.5 py-0.5 rounded-full border border-[#D4AF37]/30">Exemple</span>
                           </div>
                           <div className="flex justify-between text-xs text-stone-400">
-                            <p className="truncate">Peugeot Partner • 185 TN</p>
-                            <p className="text-[#D4AF37] font-bold ml-2">5 min</p>
+                            <p className="truncate">Vous êtes prévenu à chaque étape</p>
                           </div>
                        </div>
                     </div>
@@ -189,25 +184,25 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --- STATS STRIP (Dominante Or) --- */}
+      {/* --- CE QUE LE SERVICE FAIT (des faits du service, pas des chiffres de performance) --- */}
       <div className="border-y border-[#D4AF37]/20 bg-[#FFFBF0]">
         <div className="container mx-auto px-4 py-10">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
                 <div className="space-y-1">
-                    <h4 className="text-4xl font-extrabold text-[#B69121]">30 min</h4>
-                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">Délai moyen</p>
+                    <h4 className="text-2xl md:text-3xl font-extrabold text-[#B69121]">Sans compte</h4>
+                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">Une demande en 3 étapes</p>
                 </div>
                 <div className="space-y-1">
-                    <h4 className="text-4xl font-extrabold text-[#B69121]">24/7</h4>
-                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">Disponibilité</p>
+                    <h4 className="text-2xl md:text-3xl font-extrabold text-[#B69121]">Par SMS</h4>
+                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">Votre lien de suivi</p>
                 </div>
                 <div className="space-y-1">
-                    <h4 className="text-4xl font-extrabold text-[#B69121]">500+</h4>
-                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">Experts</p>
+                    <h4 className="text-2xl md:text-3xl font-extrabold text-[#B69121]">Avec photos</h4>
+                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">Jusqu'à 6 par demande</p>
                 </div>
                 <div className="space-y-1">
-                    <h4 className="text-4xl font-extrabold text-[#B69121]">100%</h4>
-                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">Sécurisé</p>
+                    <h4 className="text-2xl md:text-3xl font-extrabold text-[#B69121]">Validés</h4>
+                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">Techniciens approuvés par l'équipe</p>
                 </div>
             </div>
         </div>
@@ -280,7 +275,7 @@ export default function Home() {
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-stone-900 border-2 border-[#D4AF37] text-[#D4AF37] text-2xl font-bold relative z-10 shadow-[0_0_20px_rgba(212,175,55,0.3)] group-hover:scale-110 transition-transform">1</div>
               <div>
                 <h3 className="text-xl font-bold mb-2 text-[#F3DFA2]">Décrivez le problème</h3>
-                <p className="text-stone-400 max-w-xs mx-auto">Remplissez le formulaire intelligent, ajoutez une photo et validez votre position.</p>
+                <p className="text-stone-400 max-w-xs mx-auto">Choisissez le service, décrivez le problème, ajoutez des photos et indiquez le lieu de l'intervention.</p>
               </div>
             </div>
 
@@ -289,7 +284,7 @@ export default function Home() {
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#D4AF37] border-2 border-white text-[#0f111a] text-2xl font-bold relative z-10 shadow-[0_0_30px_rgba(212,175,55,0.5)] group-hover:scale-110 transition-transform">2</div>
               <div>
                 <h3 className="text-xl font-bold mb-2 text-[#F3DFA2]">Expert assigné</h3>
-                <p className="text-stone-400 max-w-xs mx-auto">Notre équipe identifie le meilleur technicien disponible à proximité.</p>
+                <p className="text-stone-400 max-w-xs mx-auto">Notre équipe examine votre demande et désigne un technicien.</p>
               </div>
             </div>
 
@@ -298,7 +293,7 @@ export default function Home() {
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-stone-900 border-2 border-[#D4AF37] text-[#D4AF37] text-2xl font-bold relative z-10 shadow-[0_0_20px_rgba(212,175,55,0.3)] group-hover:scale-110 transition-transform">3</div>
               <div>
                 <h3 className="text-xl font-bold mb-2 text-[#F3DFA2]">Problème résolu</h3>
-                <p className="text-stone-400 max-w-xs mx-auto">Le technicien intervient. Vous validez la fin des travaux directement.</p>
+                <p className="text-stone-400 max-w-xs mx-auto">Le technicien intervient. Vous suivez chaque étape depuis votre lien et pouvez donner votre avis.</p>
               </div>
             </div>
 
@@ -310,7 +305,7 @@ export default function Home() {
       <section className="py-20 bg-stone-50 border-t border-stone-200">
          <div className="container mx-auto px-4 text-center space-y-8">
             <h2 className="text-3xl md:text-4xl font-bold text-blue-950">Ne laissez pas un souci technique s'aggraver.</h2>
-            <p className="text-stone-600 text-lg max-w-2xl mx-auto">Rejoignez les syndics et particuliers qui exigent la qualité.</p>
+            <p className="text-stone-600 text-lg max-w-2xl mx-auto">Décrivez votre problème en trois étapes : nous nous occupons du reste.</p>
             <Link href="/demande" className="inline-block">
               {/* CTA FINALE OR MASSIF */}
               <Button size="lg" className="h-16 px-10 text-xl bg-gradient-to-r from-[#D4AF37] via-[#E5C04A] to-[#B69121] hover:brightness-110 text-white shadow-2xl shadow-[#D4AF37]/40 border-t border-[#FFF5D1]/30 rounded-full font-bold">
@@ -329,7 +324,7 @@ export default function Home() {
                   <ShieldCheck className="h-5 w-5 text-[#D4AF37]" />
                   <span>Smart-Dépannage</span>
                 </div>
-                <p>La référence du dépannage d'urgence en France.</p>
+                <p>Dépannage à domicile en Tunisie.</p>
              </div>
              <div>
                 <h4 className="font-bold text-white mb-4">Services</h4>
