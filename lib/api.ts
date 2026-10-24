@@ -2,8 +2,11 @@
 import axios from 'axios';
 import type { Send } from '@/lib/shared';
 
+/** The address of the server: the PDF files of an invoice are linked from it (P2-07). */
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
+  baseURL: API_URL,
   // No fixed Content-Type: axios writes JSON for an object, and leaves a FormData (the pictures) to the browser,
   // which adds the boundary the server needs. No fixed timeout either: the other pages (the application of an artisan
   // sends up to 15 MB) never had one; the calls of the request pages choose theirs with `sender()` below.

@@ -348,7 +348,7 @@ function Tracking({ id, token }: { id: number; token: string }) {
       )}
       </div>
 
-      <InvoicePanel invoice={job.invoice} bank={transferDetails(options)} onPrinting={setPrinting} />
+      <InvoicePanel id={id} token={token} invoice={job.invoice} bank={transferDetails(options)} onPrinting={setPrinting} />
 
       <div className={cn("contents", printing && "print:hidden")}>
       {photoCount > 0 && (

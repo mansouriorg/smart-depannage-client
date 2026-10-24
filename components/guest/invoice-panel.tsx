@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, FileText, Printer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { invoiceDocument, type TrackingInterventionInvoice, type TransferDetails } from "@/lib/shared";
+import { API_URL } from "@/lib/api";
+import { formatRib, guestPdfLinks, invoiceDocument, type TrackingInterventionInvoice, type TransferDetails } from "@/lib/shared";
 import { cn } from "@/lib/utils";
 
 const TONE_PILL: Record<string, string> = {
@@ -34,10 +35,15 @@ const PRINT_RULES =
  * rest of the page left out. The account of the company is added under the totals while the invoice is unpaid.
  */
 export function InvoicePanel({
+  id,
+  token,
   invoice,
   bank,
   onPrinting,
 }: {
+  /** The request and its private link: the PDF files are asked from the server with them. */
+  id: number;
+  token: string;
   invoice: TrackingInterventionInvoice | null | undefined;
   bank: TransferDetails | null;
   /** Tells the page to leave the rest out while the print window is open. */
@@ -45,7 +51,8 @@ export function InvoicePanel({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [printRequested, setPrintRequested] = useState(false);
-  const document_ = invoiceDocument(invoice);
+  const pdf = useMemo(() => guestPdfLinks(API_URL, id, token), [id, token]);
+  const document_ = invoiceDocument(invoice, { pdf });
   const fileName = document_?.fileName ?? "facture";
 
   useEffect(() => {
@@ -150,11 +157,12 @@ export function InvoicePanel({
         <article className="space-y-5 rounded-lg border border-stone-200 p-4 text-sm text-stone-800 print:rounded-none print:border-0 print:p-0 print:text-black" aria-label={document_.title}>
           <header className="flex flex-col gap-3 sm:flex-row sm:justify-between">
             <div className="min-w-0 space-y-0.5">
-              <p className="break-words text-base font-bold text-blue-950 print:text-black">{document_.company.name ?? "Smart-Dépannage"}</p>
+              {document_.company.name && <p className="break-words text-base font-bold text-blue-950 print:text-black">{document_.company.name}</p>}
               {document_.company.address && <p className="break-words">{document_.company.address}</p>}
               {document_.company.phone && <p>Tél : {document_.company.phone}</p>}
               {document_.company.email && <p className="break-all">{document_.company.email}</p>}
               {document_.company.taxId && <p>Matricule fiscal : {document_.company.taxId}</p>}
+              {document_.company.registre && <p>Registre de commerce : {document_.company.registre}</p>}
             </div>
             <div className="space-y-0.5 sm:text-right">
               <p className="text-base font-bold text-blue-950 print:text-black">{document_.title}</p>
@@ -163,13 +171,14 @@ export function InvoicePanel({
             </div>
           </header>
 
-          {(document_.client.name || document_.client.address || document_.client.phone || document_.client.email) && (
+          {(document_.client.name || document_.client.address || document_.client.phone || document_.client.email || document_.client.taxId) && (
             <div className="space-y-0.5">
               <p className="text-xs font-bold uppercase tracking-wider text-stone-500 print:text-black">Facturé à</p>
               {document_.client.name && <p className="break-words font-semibold">{document_.client.name}</p>}
               {document_.client.address && <p className="break-words">{document_.client.address}</p>}
               {document_.client.phone && <p>{document_.client.phone}</p>}
               {document_.client.email && <p className="break-all">{document_.client.email}</p>}
+              {document_.client.taxId && <p>Matricule fiscal : {document_.client.taxId}</p>}
             </div>
           )}
 
@@ -230,11 +239,63 @@ export function InvoicePanel({
               <dt>{document_.totals.taxLabel}</dt>
               <dd className="font-medium">{document_.totals.taxText}</dd>
             </div>
-            <div className="flex justify-between gap-3 border-t border-stone-300 pt-2 text-base font-bold">
+            <div className={cn("flex justify-between gap-3 border-t border-stone-300 pt-2", !document_.totals.stampText && document_.totals.creditNotes.length === 0 ? "text-base font-bold" : "font-medium")}>
               <dt>Total TTC</dt>
               <dd>{document_.totals.totalText}</dd>
             </div>
+            {document_.totals.stampText && (
+              <>
+                <div className="flex justify-between gap-3">
+                  <dt>Timbre fiscal</dt>
+                  <dd className="font-medium">{document_.totals.stampText}</dd>
+                </div>
+                <div className={cn("flex justify-between gap-3 border-t border-stone-200 pt-2", document_.totals.creditNotes.length === 0 ? "text-base font-bold" : "font-medium")}>
+                  <dt>{document_.totals.toPayLabel}</dt>
+                  <dd>{document_.totals.toPayText}</dd>
+                </div>
+              </>
+            )}
+            {document_.totals.creditNotes.map((note) => (
+              <div key={note.id} className="flex justify-between gap-3">
+                <dt className="min-w-0 break-words">Avoir {note.number}</dt>
+                <dd className="whitespace-nowrap font-medium">{note.amountText}</dd>
+              </div>
+            ))}
+            {document_.totals.netToPayText && (
+              <div className="flex justify-between gap-3 border-t border-stone-300 pt-2 text-base font-bold">
+                <dt>{document_.totals.netLabel}</dt>
+                <dd>{document_.totals.netToPayText}</dd>
+              </div>
+            )}
           </dl>
+
+          {document_.totals.creditNotes.length > 0 && (
+            <div className="space-y-2 border-t border-stone-200 pt-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-stone-500 print:text-black">Avoirs</p>
+              <ul className="space-y-2">
+                {document_.totals.creditNotes.map((note) => (
+                  <li key={note.id} className="break-inside-avoid">
+                    <p className="font-medium">
+                      {note.number}
+                      {note.issuedText ? ` · ${note.issuedText}` : ""}
+                    </p>
+                    {note.reason && <p className="break-words text-stone-600 print:text-black">Motif : {note.reason}</p>}
+                    {note.href && (
+                      <a
+                        href={note.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Télécharger l’avoir ${note.number} (PDF)`}
+                        className="inline-flex min-h-11 items-center text-sm font-semibold text-blue-800 underline underline-offset-2 hover:text-blue-950 print:hidden"
+                      >
+                        Télécharger l’avoir (PDF)
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {unpaid && bank && (
             <div className="space-y-0.5 border-t border-stone-200 pt-3">
@@ -249,7 +310,30 @@ export function InvoicePanel({
             </div>
           )}
 
-          {document_.notes && <p className="whitespace-pre-line break-words border-t border-stone-200 pt-3">{document_.notes}</p>}
+          {unpaid && !bank && document_.company.rib && (
+            <div className="space-y-0.5 border-t border-stone-200 pt-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-stone-500 print:text-black">Coordonnées bancaires</p>
+              <p>
+                RIB : <span className="font-mono">{formatRib(document_.company.rib)}</span>
+              </p>
+            </div>
+          )}
+
+          {document_.paymentTerms && (
+            <div className="space-y-0.5 border-t border-stone-200 pt-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-stone-500 print:text-black">Conditions de règlement</p>
+              <p className="break-words">{document_.paymentTerms}</p>
+            </div>
+          )}
+
+          {document_.notes && (
+            <div className="space-y-0.5 border-t border-stone-200 pt-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-stone-500 print:text-black">Remarques</p>
+              <p className="whitespace-pre-line break-words">{document_.notes}</p>
+            </div>
+          )}
+
+          {document_.legalMentions && <p className="whitespace-pre-line break-words border-t border-stone-200 pt-3 text-xs text-stone-500 print:text-black">{document_.legalMentions}</p>}
         </article>
       )}
     </section>
