@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AlertTriangle, Check, Loader2, MapPin, Phone, WifiOff } from "lucide-react";
 
+import { InvoicePanel } from "@/components/guest/invoice-panel";
+import { PaymentHistory } from "@/components/guest/payment-history";
+import { PaymentPanel } from "@/components/guest/payment-panel";
+import { QuotePanel } from "@/components/guest/quote-panel";
 import { AddPhotosPanel, FeedbackPanel, FeedbackThanks, ProblemPanel } from "@/components/guest/tracking-panels";
 import { send } from "@/lib/api";
 import { forgetRequest, isTrackingToken, rememberRequest } from "@/lib/saved-requests";
@@ -20,7 +24,10 @@ import {
   routes,
   statusGroupOf,
   trackingProgress,
+  transferDetails,
   visitorStatus,
+  wantsPaymentOptions,
+  type PaymentOptions,
   type StatusTone,
   type TrackingIntervention,
 } from "@/lib/shared";
@@ -83,8 +90,48 @@ function Tracking({ id, token }: { id: number; token: string }) {
   const [job, setJob] = useState<TrackingIntervention | null>(null);
   const [failures, setFailures] = useState(0);
   const [answeredAt, setAnsweredAt] = useState<number | null>(null);
+  // Reads that finished, good or not: a message under a panel that waits for the result of an action stops waiting after two of them.
+  const [trackingReads, setTrackingReads] = useState(0);
+  const [optionReads, setOptionReads] = useState(0);
   const [notice, setNotice] = useState("");
+  // How the customer may pay (P2-06): read after the request when it has an accepted quote or an invoice, and again after each action.
+  const [options, setOptions] = useState<PaymentOptions | null>(null);
+  const [optionsFailed, setOptionsFailed] = useState(false);
+  // The rest of the page leaves the print window while the invoice is printed.
+  const [printing, setPrinting] = useState(false);
   const refreshNow = useRef<() => void>(() => undefined);
+  const optionsBusy = useRef(false);
+  const optionsAgain = useRef(false);
+
+  const readOptions = useCallback(async () => {
+    // A read is already on its way: ask for one more when it ends, because what it brings may have been written before the action
+    // that makes this one necessary.
+    if (optionsBusy.current) {
+      optionsAgain.current = true;
+
+      return;
+    }
+
+    optionsBusy.current = true;
+
+    try {
+      do {
+        optionsAgain.current = false;
+
+        try {
+          setOptions(await callApi(send, routes.guest.paymentOptions(id, token)));
+          setOptionsFailed(false);
+        } catch {
+          // The last answer stays: a failed read does not blank a block the customer was using. Only a page that never had one says so.
+          setOptionsFailed(true);
+        }
+
+        setOptionReads((count) => count + 1);
+      } while (optionsAgain.current);
+    } finally {
+      optionsBusy.current = false;
+    }
+  }, [id, token]);
 
   useEffect(() => {
     let remembered = false;
@@ -103,13 +150,20 @@ function Tracking({ id, token }: { id: number; token: string }) {
         setPhase("ready");
         setFailures(0);
         setAnsweredAt(Date.now());
+        setTrackingReads((count) => count + 1);
+
+        if (wantsPaymentOptions(data)) void readOptions();
+        else setOptions(null);
 
         if (!remembered) {
           remembered = true;
           rememberRequest({ id, token, service: serviceName(data), savedAt: Date.now() });
         }
       },
-      onFailure: setFailures,
+      onFailure: (count) => {
+        setFailures(count);
+        setTrackingReads((reads) => reads + 1);
+      },
       onInvalid: () => {
         // Nothing to keep for a link the server does not know.
         forgetRequest(id);
@@ -130,7 +184,13 @@ function Tracking({ id, token }: { id: number; token: string }) {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", onOnline);
     };
-  }, [id, token]);
+  }, [id, token, readOptions]);
+
+  // After an answer to the quote or a payment request: the request and the options are read again at once.
+  const onActed = useCallback(() => {
+    refreshNow.current();
+    void readOptions();
+  }, [readOptions]);
 
   const onSaved = useCallback((updated: TrackingIntervention | null) => {
     // The answer to an opinion is the request as the server rebuilt it from a bare row (no technician, no quotes, no timeline):
@@ -183,7 +243,9 @@ function Tracking({ id, token }: { id: number; token: string }) {
   const photoCount = job.photos?.length ?? 0;
 
   return (
-    <div className="mx-auto w-full max-w-lg space-y-5">
+    <div className="mx-auto flex w-full max-w-lg flex-col gap-5 print:max-w-none">
+      {/* The groups are laid out as if they were not there (`contents`); only the print window leaves them out, with the invoice. */}
+      <div className={cn("contents", printing && "print:hidden")}>
       {failures >= 2 && (
         <p role="status" className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
           <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />
@@ -242,6 +304,8 @@ function Tracking({ id, token }: { id: number; token: string }) {
         </ol>
       )}
 
+      <QuotePanel id={id} token={token} job={job} reads={trackingReads} onAnswered={onActed} />
+
       {showArtisan && (
         <section className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm" aria-labelledby="artisan-title">
           <h2 id="artisan-title" className="text-xs font-bold uppercase tracking-wider text-[#B69121]">
@@ -259,6 +323,34 @@ function Tracking({ id, token }: { id: number; token: string }) {
         </section>
       )}
 
+      {wantsPaymentOptions(job) && options && <PaymentPanel id={id} token={token} options={options} payments={job.payments} reads={optionReads} onChanged={onActed} />}
+      {/* A request cancelled after a payment was asked for has no payment block: what was recorded is still told. */}
+      {!wantsPaymentOptions(job) && <PaymentHistory payments={job.payments} framed />}
+      {wantsPaymentOptions(job) && !options && (
+        <section className="rounded-xl border border-stone-200 bg-white p-5 text-sm text-stone-600 shadow-sm" aria-label="Paiement">
+          {optionsFailed ? (
+            <div role="alert" className="space-y-3">
+              <p>Les modes de paiement n’ont pas pu être chargés.</p>
+              <button
+                type="button"
+                onClick={() => void readOptions()}
+                className="h-10 rounded-md border border-stone-300 bg-white px-4 font-semibold text-stone-800 hover:border-[#D4AF37] hover:text-[#B69121]"
+              >
+                Réessayer
+              </button>
+            </div>
+          ) : (
+            <p role="status" className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Chargement du paiement…
+            </p>
+          )}
+        </section>
+      )}
+      </div>
+
+      <InvoicePanel invoice={job.invoice} bank={transferDetails(options)} onPrinting={setPrinting} />
+
+      <div className={cn("contents", printing && "print:hidden")}>
       {photoCount > 0 && (
         <p className="text-sm text-stone-500">
           {photoCount} photo{photoCount > 1 ? "s" : ""} jointe{photoCount > 1 ? "s" : ""} à votre demande.
@@ -281,6 +373,7 @@ function Tracking({ id, token }: { id: number; token: string }) {
           </Link>
         </p>
       </footer>
+      </div>
     </div>
   );
 }

@@ -261,7 +261,7 @@ export function ProblemPanel({ id, token, status }: PanelProps & { status: strin
 
   return (
     <section className={PANEL_CLASS} aria-labelledby="problem-title">
-      <h2 id="problem-title" className="font-bold text-blue-950">
+      <h2 id="problem-title" tabIndex={-1} className="font-bold text-blue-950 focus:outline-none">
         Un problème ?
       </h2>
 

@@ -19,7 +19,7 @@ export default function RootLayout({
     <html lang="fr">
       <body className={inter.className}>
         {/* On pourrait ajouter un Header global ici plus tard */}
-        <main className="min-h-screen bg-slate-50 text-slate-900">
+        <main className="min-h-screen bg-slate-50 text-slate-900 print:min-h-0 print:bg-white">
           {children}
         </main>
       </body>

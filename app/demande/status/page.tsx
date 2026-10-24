@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function TrackingPage() {
   return (
-    <div className="min-h-screen bg-stone-50 px-4 py-10">
+    <div className="min-h-screen bg-stone-50 px-4 py-10 print:min-h-0 print:bg-white print:p-0">
       <TrackingView />
     </div>
   );
