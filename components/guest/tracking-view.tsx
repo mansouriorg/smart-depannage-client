@@ -18,6 +18,8 @@ import {
   TRADES,
   callApi,
   canAddPhotos,
+  cardCheckDue,
+  cardPaymentOf,
   canGiveFeedback,
   hasGivenFeedback,
   recordIdOf,
@@ -102,6 +104,10 @@ function Tracking({ id, token }: { id: number; token: string }) {
   const refreshNow = useRef<() => void>(() => undefined);
   const optionsBusy = useRef(false);
   const optionsAgain = useRef(false);
+  // A card payment waits (P2-10): now and then the options are read through the route that asks the provider, as a nudge for the customer
+  // who has just paid. The webhook and the server's timer settle the payment without it.
+  const watchingCard = useRef(false);
+  const lastCardCheck = useRef<number | null>(null);
 
   const readOptions = useCallback(async () => {
     // A read is already on its way: ask for one more when it ends, because what it brings may have been written before the action
@@ -119,7 +125,24 @@ function Tracking({ id, token }: { id: number; token: string }) {
         optionsAgain.current = false;
 
         try {
-          setOptions(await callApi(send, routes.guest.paymentOptions(id, token)));
+          const asking = cardCheckDue(watchingCard.current, lastCardCheck.current, Date.now());
+          let read: PaymentOptions;
+
+          if (asking) {
+            lastCardCheck.current = Date.now();
+
+            try {
+              read = await callApi(send, routes.guest.checkPayment(id, token));
+            } catch {
+              // The check is a nudge: when it fails (too many asks, the provider's side is down) the options are read as usual.
+              read = await callApi(send, routes.guest.paymentOptions(id, token));
+            }
+          } else {
+            read = await callApi(send, routes.guest.paymentOptions(id, token));
+          }
+
+          watchingCard.current = cardPaymentOf(read.open)?.watch === true;
+          setOptions(read);
           setOptionsFailed(false);
         } catch {
           // The last answer stays: a failed read does not blank a block the customer was using. Only a page that never had one says so.

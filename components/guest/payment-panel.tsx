@@ -1,7 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
-import { CheckCircle2, Clock, Landmark, Loader2, Wallet } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import { CheckCircle2, Clock, CreditCard, ExternalLink, Landmark, Loader2, Wallet } from "lucide-react";
 
 import { CopyButton } from "@/components/guest/copy-button";
 import { PaymentHistory } from "@/components/guest/payment-history";
@@ -12,16 +12,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { send } from "@/lib/api";
+import { keepPaymentReturn, leaveForProvider } from "@/lib/card-payment";
 import { failureOf } from "@/lib/guest-errors";
 import {
   PAYMENT_REFERENCE_MAX,
+  PAYMENT_WORDS,
+  attemptKey,
   callApi,
+  cardCanTryAgain,
   paymentPanel,
   paymentSignature,
   pickedChoice,
   readTransferReference,
   routes,
   stateHasMoved,
+  type KeyedAttempt,
   type PaymentChoice,
   type PaymentOptions,
   type PaymentPanel as PanelState,
@@ -36,6 +41,9 @@ const DONE: Record<PaymentChoice, string> = {
   BANK_TRANSFER: "Demande de virement enregistrée. Faites le virement avec les coordonnées ci-dessous, puis envoyez-nous sa référence.",
   ONLINE_CARD: "Demande enregistrée.",
 };
+
+/** Said when the customer is sent to the provider's page (the page may take a moment to open). */
+const LEAVING_WORDS = "Redirection vers la page de paiement sécurisée…";
 
 /** Said before the choice is confirmed, and again while a payment waits: the customer cannot cancel or change it from this page. */
 const BEFORE_WORDS = "Une fois confirmé, le mode de paiement ne se change plus depuis cette page : écrivez-nous dans « Un problème ? » plus bas.";
@@ -82,9 +90,10 @@ function BankDetails({ bank, amountText }: { bank: NonNullable<PanelState["bank"
 }
 
 /**
- * How to pay, from the options the server gave (`GET payment-options`): cash or a transfer to the company's account. The card is
- * shown as not available until a provider is connected. A payment that waits is confirmed by the team; the customer cannot cancel it
- * from here (the server refuses another way of paying while one waits, and says so).
+ * How to pay, from the options the server gave (`GET payment-options`): cash, a transfer to the company's account, or the card. The card
+ * is shown as not available until a provider is connected; chosen, it sends the customer to the provider's page and the server settles the
+ * payment by itself when the provider says it is paid (P2-10). A cash or transfer payment that waits is confirmed by the team; the customer
+ * cannot cancel any waiting payment from here (the server refuses another way of paying while one waits, and says so).
  */
 export function PaymentPanel({
   id,
@@ -108,9 +117,29 @@ export function PaymentPanel({
   const [pickedFor, setPickedFor] = useState<string | null>(null);
   const [reference, setReference] = useState("");
   const [busy, setBusy] = useState(false);
+  // One key per decision (P2-10): a repeated tap, or a retry after an answer that was lost, is the same request for the server and
+  // never makes a second payment. A new key when another way is picked, when the request carries something new (the reference of a
+  // transfer), after any answer that settled the request, and when the first attempt is more than two minutes old (a payment that
+  // has ended since would be handed back for the same key).
+  const attempt = useRef<KeyedAttempt | null>(null);
 
   const panel = paymentPanel(options);
   const { done, error, settling, show, clear } = useNote(paymentSignature(panel), panel?.stage ?? "none", reads);
+
+  // The customer who comes back from the provider's page with the Back button gets this page as the browser kept it: locked, and saying
+  // that they are on their way. They are not any more: the page is free again, and what it shows is read again at the next poll.
+  useEffect(() => {
+    const back = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+
+      setBusy(false);
+      clear();
+    };
+
+    window.addEventListener("pageshow", back);
+
+    return () => window.removeEventListener("pageshow", back);
+  }, [clear]);
 
   // The amount changed while a way was picked (an invoice was issued meanwhile): what was picked was picked for another amount.
   if (choice !== null && pickedFor !== null && panel && panel.amountText !== pickedFor) {
@@ -128,7 +157,7 @@ export function PaymentPanel({
 
     // The reference is asked for when it is the point (a payment that waits for it); with a first request it is optional.
     const waiting = panel?.stage === "waiting";
-    const read = waiting || typed.trim() !== "" ? readTransferReference(typed) : null;
+    const read = method === "BANK_TRANSFER" && (waiting || typed.trim() !== "") ? readTransferReference(typed) : null;
 
     if (read && !read.ok) {
       show({ kind: "error", text: read.problem });
@@ -139,8 +168,35 @@ export function PaymentPanel({
     setBusy(true);
     clear();
 
+    const kept = attemptKey(attempt.current, method, read?.ok ? read.reference : "", Date.now());
+    const key = kept.key;
+
+    attempt.current = kept;
+
+    let leaving = false;
+
     try {
-      await callApi(send, routes.guest.pay(id, token, { method, ...(read?.ok ? { reference: read.reference } : {}) }));
+      const answer = await callApi(send, routes.guest.pay(id, token, { method, ...(read?.ok ? { reference: read.reference } : {}) }, key));
+
+      attempt.current = null;
+
+      if (method === "ONLINE_CARD") {
+        // The provider's page is where the card is paid. Without a page (the provider did not take the request) nothing more can be done
+        // here: the page then offers to try again.
+        leaving = leaveForProvider({ id, token }, answer.payment.payUrl);
+
+        if (leaving) {
+          show({ kind: "done", text: LEAVING_WORDS }, { rereads: false });
+
+          return;
+        }
+
+        show({ kind: "error", text: PAYMENT_WORDS.cardUnprepared }, { rereads: true });
+        onChanged();
+
+        return;
+      }
+
       // The same reference sent again changes nothing on the page: nothing is expected to move, so the message is not kept for a change.
       const unchanged = waiting && read?.ok === true && panel?.open?.reference === read.reference;
 
@@ -154,11 +210,15 @@ export function PaymentPanel({
       // Another payment is waiting, or the job is paid: read the options again so that the page says what is true.
       const moved = failure.kind === "refused" && stateHasMoved(failure.status);
 
+      // A refusal settled this request (the key is spent); a lost answer or a provider that was down did not: the same key is sent again.
+      if (failure.kind !== "network" && failure.kind !== "server") attempt.current = null;
+
       show({ kind: "error", text: failure.message }, { rereads: moved });
 
       if (moved) onChanged();
     } finally {
-      setBusy(false);
+      // The customer who is on the way to the provider's page cannot tap again while it opens.
+      if (!leaving) setBusy(false);
     }
   }
 
@@ -218,13 +278,14 @@ export function PaymentPanel({
                   onChange={() => {
                     setChoice(item.method);
                     setPickedFor(panel.amountText);
+                    attempt.current = null;
                     clear();
                   }}
                   className="mt-1 h-4 w-4 accent-[#B69121]"
                 />
                 <span className="min-w-0">
                   <span className="flex items-center gap-2 font-semibold text-stone-800">
-                    {item.method === "BANK_TRANSFER" ? <Landmark className="h-4 w-4" aria-hidden /> : <Wallet className="h-4 w-4" aria-hidden />}
+                    {item.method === "BANK_TRANSFER" ? <Landmark className="h-4 w-4" aria-hidden /> : item.method === "ONLINE_CARD" ? <CreditCard className="h-4 w-4" aria-hidden /> : <Wallet className="h-4 w-4" aria-hidden />}
                     {item.title}
                   </span>
                   <span className="block text-sm text-stone-600">{item.available ? item.detail : item.reason}</span>
@@ -265,12 +326,36 @@ export function PaymentPanel({
 
           <Button type="submit" className={cn(PRIMARY_BUTTON_CLASS, "h-auto min-h-12 whitespace-normal py-2 text-base")} disabled={busy || chosen === null}>
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : null}
-            {chosen === "CASH" ? "Je paierai en espèces" : chosen === "BANK_TRANSFER" ? "Confirmer le virement" : "Choisissez un mode de paiement"}
+            {chosen === "CASH" ? "Je paierai en espèces" : chosen === "BANK_TRANSFER" ? "Confirmer le virement" : chosen === "ONLINE_CARD" ? "Payer par carte" : "Choisissez un mode de paiement"}
           </Button>
         </form>
       )}
 
       {panel.stage === "waiting" && panel.bank && <BankDetails bank={panel.bank} amountText={panel.amountText} />}
+
+      {panel.stage === "waiting" && panel.card?.phase === "ready" && panel.card.payUrl && (
+        <div className="space-y-2">
+          {/* An ordinary link: it works even if the script has not run, and the page keeps which request is paid just before it opens. */}
+          <a
+            href={panel.card.payUrl}
+            rel="noopener"
+            onClick={() => keepPaymentReturn({ id, token })}
+            className={cn(PRIMARY_BUTTON_CLASS, "inline-flex h-auto min-h-12 w-full items-center justify-center gap-2 whitespace-normal rounded-md px-4 py-2 text-center text-base font-semibold")}
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden />
+            {PAYMENT_WORDS.cardGoToProvider}
+          </a>
+          <p className="text-xs text-stone-500">Vous payez sur la page sécurisée de notre prestataire de paiement : nous ne voyons ni ne gardons les numéros de votre carte.</p>
+        </div>
+      )}
+
+      {/* The request the provider never took, or the one whose time is over: asking again starts a new one (the server looks at the old one first). */}
+      {panel.stage === "waiting" && cardCanTryAgain(panel.card) && (
+        <Button type="button" className={cn(PRIMARY_BUTTON_CLASS, "h-auto min-h-12 whitespace-normal py-2 text-base")} disabled={busy} onClick={() => void request("ONLINE_CARD", "")}>
+          {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <CreditCard className="mr-2 h-4 w-4" aria-hidden />}
+          {PAYMENT_WORDS.cardTryAgain}
+        </Button>
+      )}
 
       {panel.stage === "waiting" && panel.canSendReference && (
         <form

@@ -15,6 +15,16 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "no-store" },
         ],
       },
+      {
+        // Where the card provider sends the customer back (P2-10): the page links to the tracking page with the secret of the link,
+        // and says what became of one person's payment. Same rules.
+        source: "/paiement/retour",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
     ];
   },
 };
