@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { AlertTriangle, Check, Loader2, MapPin, Phone, WifiOff } from "lucide-react";
+import { AlertTriangle, Check, Clock, Loader2, MapPin, Phone, WifiOff } from "lucide-react";
 
 import { InvoicePanel } from "@/components/guest/invoice-panel";
 import { Ltr } from "@/components/ltr";
@@ -38,6 +38,8 @@ import {
   type PaymentOptions,
   type StatusTone,
   type TrackingIntervention,
+  type WithArrival,
+  visibleArrival,
 } from "@/lib/shared";
 import { useAppLocale, useLatest, useOnLanguageChange } from "@/lib/use-app-locale";
 import { cn } from "@/lib/utils";
@@ -87,9 +89,12 @@ function Tracking({ id, token }: { id: number; token: string }) {
   const locale = useAppLocale();
   const formats = dateFormats(locale);
   const [phase, setPhase] = useState<Phase>("loading");
-  const [job, setJob] = useState<TrackingIntervention | null>(null);
+  const [job, setJob] = useState<WithArrival<TrackingIntervention> | null>(null);
   const [failures, setFailures] = useState(0);
   const [answeredAt, setAnsweredAt] = useState<number | null>(null);
+  // The time the arrival estimate is judged at: it moves on by itself and when the tab comes back, so that an estimate that was true before the
+  // tab sat hidden does not stay on the screen until the next answer arrives (P3-05).
+  const [clock, setClock] = useState(() => Date.now());
   // Reads that finished, good or not: a message under a panel that waits for the result of an action stops waiting after two of them.
   const [trackingReads, setTrackingReads] = useState(0);
   const [optionReads, setOptionReads] = useState(0);
@@ -104,6 +109,21 @@ function Tracking({ id, token }: { id: number; token: string }) {
   // The rest of the page leaves the print window while the invoice is printed.
   const [printing, setPrinting] = useState(false);
   const refreshNow = useRef<() => void>(() => undefined);
+
+  useEffect(() => {
+    const move = () => setClock(Date.now());
+    const timer = setInterval(move, 30_000);
+
+    document.addEventListener("visibilitychange", move);
+    window.addEventListener("focus", move);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", move);
+      window.removeEventListener("focus", move);
+    };
+  }, []);
+
   const optionsBusy = useRef(false);
   const optionsAgain = useRef(false);
   // A card payment waits (P2-10): now and then the options are read through the route that asks the provider, as a nudge for the customer
@@ -276,6 +296,8 @@ function Tracking({ id, token }: { id: number; token: string }) {
   const words = visitorStatus(job.status, locale);
   const group = statusGroupOf(job.status);
   const { steps, halted } = trackingProgress(job.status, locale);
+  // When the technician will be there: only while on the way, and not while the page has lost contact (P3-05).
+  const arrival = visibleArrival(job, { failures, locale, answeredAt, now: clock });
   const artisanPhone = dialable(job.artisan?.phone);
   const showArtisan = group === "active" && Boolean(job.artisan?.name);
   const created = when(job.createdAt, formats.dayAndTime);
@@ -320,6 +342,23 @@ function Tracking({ id, token }: { id: number; token: string }) {
       <p className="sr-only" aria-live="polite" role="status">
         {notice}
       </p>
+
+      {arrival && (
+        <section
+          className={cn(
+            "rounded-xl border p-5 shadow-sm",
+            arrival.kind === "stale" || arrival.kind === "unknown" ? "border-amber-200 bg-amber-50 text-amber-950" : "border-stone-200 bg-white text-blue-950",
+          )}
+          aria-labelledby="arrival-title"
+        >
+          <h2 id="arrival-title" className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#B69121]">
+            <Clock className="h-4 w-4" /> {arrival.title}
+          </h2>
+          <p className="mt-1 text-lg font-bold" dir="auto">{arrival.headline}</p>
+          {arrival.detail && <p className="mt-1 text-xs text-stone-500">{arrival.detail}</p>}
+          {arrival.note && <p className="mt-1 text-xs text-stone-500">{arrival.note}</p>}
+        </section>
+      )}
 
       {!halted && (
         <ol className="grid grid-cols-5 gap-1" aria-label={t("progress.label")}>

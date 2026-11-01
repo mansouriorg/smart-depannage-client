@@ -86,3 +86,18 @@ arrives and is not translated again.
 
 **`next-intl` not installed yet.** The dependency (`next-intl` ^4.4.0) is in `package.json`; if `Cannot find module
 'next-intl'` appears, run `pnpm install` (or `npm install`) in this folder, then restart `next dev`.
+
+## Arrival time on the tracking page (P3-05)
+
+While a technician is on the way, the tracking page (`components/guest/tracking-view.tsx`) shows a card "Arrivée estimée" / "الوصول المتوقع" under the status.
+The server adds `arrival` to the answer of `GET /guest/tracking/:id` (`{ state, minutes, ageMinutes }`) and the shared rule `visibleArrival` decides what is said:
+
+- **a figure** ("Votre technicien arrive dans environ 12 minutes.") only from a position that is recent, with the age of the position and a line saying it is an estimate;
+- **"in a moment"** up to 2 minutes, **"in more than an hour"** from 60;
+- **a sentence with no figure** when the position is old, or when nobody knows when it was sent;
+- **nothing** when the job is not on the way, when the job has no point on the map (most requests made on this site have none: the estimate needs one),
+  while the page has lost contact with the server (two failed tries in a row: the card goes with the "connexion instable" notice rather than show a figure that can no longer be vouched for),
+  and when the answer on the screen is **more than 2 minutes old** (`ARRIVAL_ANSWER_MAX_AGE_MS`): a tab that sat hidden or frozen makes no request and counts no failure, so the page judges the age of the answer itself,
+  every 30 seconds and when the tab comes back.
+
+The estimate is the straight line made longer by 1.3 and divided by 30 km/h: it is an assumption, there is no routing service behind it. Both languages are in the shared catalogue (`tracking.arrival.*`).

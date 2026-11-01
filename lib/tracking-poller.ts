@@ -21,11 +21,12 @@ import {
   statusChangeNotice,
   type Locale,
   type TrackingIntervention,
+  type WithArrival,
 } from '@/lib/shared';
 
 export interface PollerDeps {
   /** One call to the server for this request. */
-  load: () => Promise<TrackingIntervention>;
+  load: () => Promise<WithArrival<TrackingIntervention>>;
   /**
    * The language of the notice announced when the status changes (French when not given). A function is read each time a notice is
    * made, so that the poller does not have to be started again when the visitor changes the language of the page.
@@ -37,7 +38,7 @@ export interface PollerDeps {
   setTimer: (run: () => void, ms: number) => unknown;
   clearTimer: (handle: unknown) => void;
   /** A good answer. `notice` is the sentence to announce when the status changed since the previous answer (never for the first one). */
-  onAnswer: (job: TrackingIntervention, notice: string | null) => void;
+  onAnswer: (job: WithArrival<TrackingIntervention>, notice: string | null) => void;
   /** A try that failed (the number of failures in a row so far). */
   onFailure: (failures: number) => void;
   /** The server does not know this link. */
