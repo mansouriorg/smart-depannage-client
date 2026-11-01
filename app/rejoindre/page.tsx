@@ -13,8 +13,9 @@ import {
   Clock,
   FileText
 } from "lucide-react";
+import { LegalLink } from "@/components/legal-link";
 import api from "@/lib/api"; // ✅ Use your API helper
-import { TRADE_LIST, tradeLabel } from "@/lib/shared";
+import { CONSENT_PRIVACY_MARK, CONSENT_TERMS_MARK, TRADE_LIST, consentParts, tradeLabel } from "@/lib/shared";
 import { useAppLocale, useOnLanguageChange } from "@/lib/use-app-locale";
 import { typedDir } from "@/lib/text-direction";
 import {
@@ -38,6 +39,7 @@ interface ZoneChoice {
 export default function JoinPage() {
   const t = useTranslations("website.join");
   const tn = useTranslations("website.nav");
+  const tRequest = useTranslations("website.request");
   const tc = useTranslations("common.states");
   const locale = useAppLocale();
   const [isLoading, setIsLoading] = useState(false);
@@ -373,7 +375,19 @@ export default function JoinPage() {
                       />
                     </div>
                   ))}
-                  <p className="text-xs text-stone-400">{t("form.documentsNote")}</p>
+                  <p className="text-xs text-stone-500">{t("form.documentsNote")}</p>
+                  {/* What happens to these documents and to the rest of the form (P3-08). */}
+                  <p className="text-xs text-stone-500">
+                    {consentParts(t("form.privacyLine", { terms: CONSENT_TERMS_MARK, privacy: CONSENT_PRIVACY_MARK })).map((part, index) =>
+                      part.kind === "text" ? (
+                        <span key={index}>{part.text}</span>
+                      ) : part.kind === "privacy" ? (
+                        <LegalLink key={index} document="privacy">
+                          {tRequest("consent.privacy")}
+                        </LegalLink>
+                      ) : null,
+                    )}
+                  </p>
                 </div>
 
                 {/* Entreprise (facultatif) */}

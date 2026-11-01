@@ -38,6 +38,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SLOT, SlotText } from "@/components/slot-text";
+import { LegalLink } from "@/components/legal-link";
 import { Textarea } from "@/components/ui/textarea";
 import { send, sendCreate, sendSlow } from "@/lib/api";
 import { BotCheckUnavailable } from "@/lib/bot-check-session";
@@ -45,6 +46,8 @@ import { failureOf, type Failure } from "@/lib/guest-errors";
 import { rememberRequest, trackingPath } from "@/lib/saved-requests";
 import { uploadPhotos } from "@/lib/upload-photos";
 import {
+  CONSENT_PRIVACY_MARK,
+  CONSENT_TERMS_MARK,
   EMPTY_GUEST_FORM,
   GUEST_LIMITS,
   GUEST_STEPS,
@@ -52,10 +55,12 @@ import {
   buildGuestRequest,
   callApi,
   categoryOfTrade,
+  consentParts,
   coordinatesOf,
   durationText,
   firstStepWithProblem,
   isolateFor,
+  legalSetStatus,
   normalizePhone,
   priceText,
   routes,
@@ -87,6 +92,9 @@ const TRADE_ICONS: Record<TradeCode, typeof Wrench> = {
 
 /** An example of a number with another country code (written in full), shown in the help under the phone field. */
 const FOREIGN_PHONE_EXAMPLE = "+33\u00a06\u00a012\u00a034\u00a056\u00a078"; // no-break spaces: the number must not be cut between two lines
+
+/** The line above the send button (P3-08): the acceptance once the texts are reviewed (`legalSetStatus`, one answer for all of them), only the information while they are a draft. The same on the server and in the browser. */
+const CONSENT_KEY = legalSetStatus().reviewed ? ("consent.line" as const) : ("consent.informLine" as const);
 
 /** The field to put the cursor in for each field a step can complain about. */
 const FIELD_IDS: Record<keyof GuestRequestForm, string> = {
@@ -666,11 +674,16 @@ export function RequestWizard() {
                   autoComplete="street-address"
                   onChange={(event) => formWith({ address: event.target.value })}
                   aria-invalid={problems.address ? true : undefined}
+                  aria-describedby="guest-address-notice"
                   placeholder={t("address.placeholder")}
                   dir={typedDir(form.address)}
                   className={FIELD_CLASS}
                 />
                 {problems.address && <p className={ERROR_CLASS}>{problems.address}</p>}
+                {/* What happens to the address (P3-08): who sees it before and after a technician takes the request. */}
+                <p id="guest-address-notice" className="text-xs text-stone-500">
+                  {t("notice.place")} <LegalLink document="privacy">{t("notice.more")}</LegalLink>
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -770,7 +783,7 @@ export function RequestWizard() {
                     value={form.contactPhone}
                     onChange={(event) => formWith({ contactPhone: event.target.value })}
                     aria-invalid={problems.contactPhone ? true : undefined}
-                    aria-describedby="guest-phone-help"
+                    aria-describedby="guest-phone-help guest-phone-notice"
                     placeholder="22 123 456"
                     className={cn(FIELD_CLASS, "min-w-0 flex-1 text-start")}
                   />
@@ -779,6 +792,10 @@ export function RequestWizard() {
                   {t("phone.help", { example: isolateFor(locale, FOREIGN_PHONE_EXAMPLE) })}
                 </p>
                 {problems.contactPhone && <p className={ERROR_CLASS}>{problems.contactPhone}</p>}
+                {/* What the number is used for and who is given it (P3-08). */}
+                <p id="guest-phone-notice" className="text-xs text-stone-500">
+                  {t("notice.phone")} <LegalLink document="privacy">{t("notice.more")}</LegalLink>
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -847,6 +864,23 @@ export function RequestWizard() {
         </CardContent>
 
         <CardFooter className="flex flex-col gap-3 pb-8 pt-2">
+          {step === "contact" && (
+            // Sending the request is the acceptance (P3-08): the line says so, with the two texts one click away, in a tab of their own so
+            // that what was typed stays where it is. While the texts are a draft nobody has read (`legalSetStatus`), the line only informs: it
+            // does not make the customer accept words that are not decided.
+            <p id="guest-consent" className="text-center text-xs text-stone-500">
+              {consentParts(t(CONSENT_KEY, { terms: CONSENT_TERMS_MARK, privacy: CONSENT_PRIVACY_MARK })).map((part, index) =>
+                part.kind === "text" ? (
+                  <span key={index}>{part.text}</span>
+                ) : (
+                  <LegalLink key={index} document={part.kind}>
+                    {t(part.kind === "terms" ? "consent.terms" : "consent.privacy")}
+                  </LegalLink>
+                ),
+              )}
+            </p>
+          )}
+
           {step === "contact" ? (
             <Button type="submit" className={PRIMARY_BUTTON_CLASS} disabled={busy}>
               {busy ? (

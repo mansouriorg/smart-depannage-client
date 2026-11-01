@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { PhoneMockup } from "@/components/phone-mockup";
 import { Ltr } from "@/components/ltr";
-import { GUEST_LIMITS } from "@/lib/shared";
+import { GUEST_LIMITS, LEGAL_PATHS } from "@/lib/shared";
 import { 
   Wrench, 
   Zap, 
@@ -257,23 +257,23 @@ export default async function Home() {
              <div>
                 <h4 className="font-bold text-white mb-4">{t("footer.services")}</h4>
                 <ul className="space-y-2">
-                   <li><a href="#" className="hover:text-[#D4AF37] transition">{t("services.plumbing.title")}</a></li>
-                   <li><a href="#" className="hover:text-[#D4AF37] transition">{t("services.electricity.title")}</a></li>
-                   <li><a href="#" className="hover:text-[#D4AF37] transition">{t("services.locksmith.title")}</a></li>
+                   <li><Link href="#services" className="hover:text-[#D4AF37] transition">{t("services.plumbing.title")}</Link></li>
+                   <li><Link href="#services" className="hover:text-[#D4AF37] transition">{t("services.electricity.title")}</Link></li>
+                   <li><Link href="#services" className="hover:text-[#D4AF37] transition">{t("services.locksmith.title")}</Link></li>
                 </ul>
              </div>
              <div>
-                <h4 className="font-bold text-white mb-4">{t("footer.company")}</h4>
+                <h4 className="font-bold text-white mb-4">{t("footer.links")}</h4>
                 <ul className="space-y-2">
-                   <li><a href="#" className="hover:text-[#D4AF37] transition">{t("footer.about")}</a></li>
-                   <li><a href="#" className="hover:text-[#D4AF37] transition">{t("footer.contact")}</a></li>
+                   <li><Link href="/demande" className="hover:text-[#D4AF37] transition">{t("nav.track")}</Link></li>
+                   <li><Link href="/rejoindre" className="hover:text-[#D4AF37] transition">{t("header.join")}</Link></li>
                 </ul>
              </div>
              <div>
                 <h4 className="font-bold text-white mb-4">{t("footer.legal")}</h4>
                 <ul className="space-y-2">
-                   <li><a href="#" className="hover:text-[#D4AF37] transition">{t("footer.terms")}</a></li>
-                   <li><a href="#" className="hover:text-[#D4AF37] transition">{t("footer.privacy")}</a></li>
+                   <li><Link href={LEGAL_PATHS.terms} className="hover:text-[#D4AF37] transition">{t("footer.terms")}</Link></li>
+                   <li><Link href={LEGAL_PATHS.privacy} className="hover:text-[#D4AF37] transition">{t("footer.privacy")}</Link></li>
                 </ul>
              </div>
           </div>
