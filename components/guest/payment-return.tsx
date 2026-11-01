@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { AlertTriangle, CheckCircle2, Clock, Loader2, ShieldCheck } from "lucide-react";
 
 import { PRIMARY_BUTTON_CLASS } from "@/components/guest/styles";
@@ -10,14 +11,16 @@ import { readPaymentReturn } from "@/lib/card-payment";
 import {
   RETURN_CHECKS_MAX,
   RETURN_CHECK_EVERY_MS,
-  RETURN_WORDS,
   callApi,
   paymentPanel,
   paymentReturn,
+  returnWords,
   routes,
+  type PaymentOptions,
   type PaymentReturn,
   type PaymentReturnMemory,
 } from "@/lib/shared";
+import { useAppLocale, useLatest } from "@/lib/use-app-locale";
 import { cn } from "@/lib/utils";
 
 type Phase =
@@ -25,7 +28,8 @@ type Phase =
   /** The browser kept nothing: another tab, another device, or a browser that keeps nothing. */
   | { kind: "lost" }
   | { kind: "checking"; checks: number }
-  | { kind: "result"; result: PaymentReturn; checks: number }
+  /** What the server answered is kept (`options`, read at `at`): the words are written when they are drawn, in the language of the page then. */
+  | { kind: "result"; result: PaymentReturn; checks: number; options: PaymentOptions | null; at: Date }
   /** The customer waited as long as the page waits; the payment is not decided yet. */
   | { kind: "tooLong" };
 
@@ -48,6 +52,12 @@ function trackingHref(memory: PaymentReturnMemory): string {
  * a reload of this page says the same thing again instead of saying it knows nothing.
  */
 export function PaymentReturnView() {
+  const t = useTranslations("website.paymentReturn");
+  const tn = useTranslations("website.nav");
+  const locale = useAppLocale();
+  const words = returnWords(locale);
+  /** The language of the page, read when a check runs: a change of language must not start the checks again (it would ask the provider again). */
+  const language = useLatest(locale);
   const [phase, setPhase] = useState<Phase>({ kind: "reading" });
   const [kept, setKept] = useState<PaymentReturnMemory | null>(null);
   const memory = useRef<PaymentReturnMemory | null>(null);
@@ -74,10 +84,10 @@ export function PaymentReturnView() {
     setPhase((now) => (now.kind === "result" ? now : { kind: "checking", checks }));
 
     let result: PaymentReturn;
+    let options: PaymentOptions | null = null;
+    const at = new Date();
 
     try {
-      let options;
-
       try {
         options = await callApi(send, routes.guest.checkPayment(kept.id, kept.token));
       } catch {
@@ -86,9 +96,10 @@ export function PaymentReturnView() {
         options = await callApi(send, routes.guest.paymentOptions(kept.id, kept.token));
       }
 
-      result = paymentReturn(paymentPanel(options));
+      result = paymentReturn(paymentPanel(options, at, language.current), language.current);
     } catch {
-      result = paymentReturn(null);
+      options = null;
+      result = paymentReturn(null, language.current);
     }
 
     if (mine !== generation.current) return;
@@ -103,7 +114,7 @@ export function PaymentReturnView() {
       return;
     }
 
-    setPhase({ kind: "result", result, checks: done });
+    setPhase({ kind: "result", result, checks: done, options, at });
 
     // A payment that waits is asked about again. So is a check that could not be made (the phone may still be finding its network after
     // the bank's application), a few times; then the button is left to the customer.
@@ -132,6 +143,8 @@ export function PaymentReturnView() {
   }, [check]);
 
   const settled = phase.kind === "result" && phase.result.verdict !== "waiting" && phase.result.verdict !== "unknown";
+  // The sentence of the verdict, in the language of the page now (the verdict itself does not depend on it).
+  const verdictWords = phase.kind === "result" ? paymentReturn(phase.options ? paymentPanel(phase.options, phase.at, locale) : null, locale).words : "";
 
   return (
     <div className="mx-auto w-full max-w-lg space-y-5">
@@ -150,22 +163,22 @@ export function PaymentReturnView() {
           )}
           <h1 id="return-title" className="text-xl font-bold text-blue-950">
             {phase.kind === "result" && phase.result.verdict === "paid"
-              ? "Paiement reçu"
+              ? t("title.paid")
               : phase.kind === "result" && phase.result.verdict === "failed"
-                ? "Paiement non confirmé"
-                : "Votre paiement par carte"}
+                ? t("title.failed")
+                : t("title.other")}
           </h1>
         </div>
 
         {/* Always on the page, so that a screen reader says what is put in it. */}
         <div role="status" aria-live="polite" className="space-y-3">
-          {(phase.kind === "reading" || phase.kind === "checking") && <p className="text-sm text-stone-700">Nous vérifions votre paiement…</p>}
+          {(phase.kind === "reading" || phase.kind === "checking") && <p className="text-sm text-stone-700">{t("checking")}</p>}
 
-          {phase.kind === "result" && <p className={cn("rounded-lg border p-3 text-sm font-medium", TONE[phase.result.verdict])}>{phase.result.words}</p>}
+          {phase.kind === "result" && <p className={cn("rounded-lg border p-3 text-sm font-medium", TONE[phase.result.verdict])}>{verdictWords}</p>}
 
-          {phase.kind === "tooLong" && <p className={cn("rounded-lg border p-3 text-sm font-medium", TONE.waiting)}>{RETURN_WORDS.tooLong}</p>}
+          {phase.kind === "tooLong" && <p className={cn("rounded-lg border p-3 text-sm font-medium", TONE.waiting)}>{words.tooLong}</p>}
 
-          {phase.kind === "lost" && <p className={cn("rounded-lg border p-3 text-sm font-medium", TONE.review)}>{RETURN_WORDS.lost}</p>}
+          {phase.kind === "lost" && <p className={cn("rounded-lg border p-3 text-sm font-medium", TONE.review)}>{words.lost}</p>}
         </div>
 
         {phase.kind === "result" && phase.result.verdict === "unknown" && kept && (
@@ -174,19 +187,19 @@ export function PaymentReturnView() {
             onClick={() => void check(phase.checks)}
             className="h-10 rounded-md border border-stone-300 bg-white px-4 font-semibold text-stone-800 hover:border-[#D4AF37] hover:text-[#B69121]"
           >
-            Réessayer maintenant
+            {tn("retryNow")}
           </button>
         )}
 
         {kept && (phase.kind === "result" || phase.kind === "tooLong") && (
           <Link href={trackingHref(kept)} className={cn(PRIMARY_BUTTON_CLASS, "inline-flex h-auto min-h-12 w-full items-center justify-center rounded-md px-4 py-2 text-center text-base font-semibold")}>
-            {settled ? "Retour au suivi de ma demande" : "Suivre ma demande"}
+            {settled ? t("backToTracking") : t("goToTracking")}
           </Link>
         )}
 
         {phase.kind === "lost" && (
           <Link href="/demande" className="inline-block text-sm font-semibold text-[#B69121] underline">
-            Mes demandes
+            {tn("myRequests")}
           </Link>
         )}
       </section>

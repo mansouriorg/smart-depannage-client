@@ -2,6 +2,8 @@
 
 import { useCallback, useState } from "react";
 
+import { useOnLanguageChange } from "@/lib/use-app-locale";
+
 /** A message under a panel: what an action did ("done"), or why it did not work ("error"). */
 export interface Note {
   text: string;
@@ -73,6 +75,9 @@ export function useNote(signature: string, stage: string, reads: number) {
   }, []);
 
   const clear = useCallback(() => setHeld(null), []);
+
+  // A note is a sentence in the language of the moment it was written: it is let go when the visitor changes language.
+  useOnLanguageChange(clear);
 
   return {
     done: held?.kind === "done" ? held.text : null,

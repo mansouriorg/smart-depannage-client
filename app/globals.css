@@ -25,3 +25,14 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Arabic pages (P3-04): Arabic letters from Noto Sans Arabic, Latin letters and digits from Inter (see app/layout.tsx). */
+[dir="rtl"] body {
+  font-family: var(--font-arabic), var(--font-inter), Arial, Helvetica, sans-serif;
+}
+
+/* Letter spacing breaks the joining of Arabic letters: tracking-* utilities (and uppercase, which does nothing to Arabic) must not space them.
+   Unlayered on purpose: Tailwind's utilities live in a cascade layer, and unlayered rules win over layered ones. */
+[dir="rtl"] * {
+  letter-spacing: normal;
+}

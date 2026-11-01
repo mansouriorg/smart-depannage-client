@@ -15,8 +15,10 @@ import { recordIdOf } from '@/lib/shared';
 export interface SavedRequest {
   id: number;
   token: string;
-  /** What the request is about, in words ("Plomberie"). */
+  /** What the request is about, in words ("Plomberie"), in the language the page had when it was kept. */
   service: string;
+  /** The trade of the request when that is all `service` says: the page then writes it again in the language it has now (P3-04). */
+  trade?: string;
   /** When it was made or last opened (milliseconds). */
   savedAt: number;
 }
@@ -26,6 +28,9 @@ export const MAX_SAVED_REQUESTS = 5;
 
 /** The shape of the secret of a link: letters, digits, "-" and "_" (the server writes 64 hexadecimal characters). */
 const TOKEN_FORMAT = /^[A-Za-z0-9_-]{16,128}$/;
+
+/** The shape of a trade code ("PLOMBIER"): capital letters and "_". */
+const TRADE_CODE_FORMAT = /^[A-Z_]{1,40}$/;
 
 export function isTrackingToken(value: unknown): value is string {
   return typeof value === 'string' && TOKEN_FORMAT.test(value);
@@ -51,7 +56,7 @@ export function parseSaved(text: string | null | undefined): SavedRequest[] {
   for (const item of data) {
     if (!item || typeof item !== 'object') continue;
 
-    const { id, token, service, savedAt } = item as Record<string, unknown>;
+    const { id, token, service, trade, savedAt } = item as Record<string, unknown>;
     const number = typeof id === 'number' ? recordIdOf(id) : null;
 
     if (number === null || !isTrackingToken(token) || seen.has(number)) continue;
@@ -61,6 +66,7 @@ export function parseSaved(text: string | null | undefined): SavedRequest[] {
       id: number,
       token,
       service: typeof service === 'string' ? service.slice(0, 60) : '',
+      ...(typeof trade === 'string' && TRADE_CODE_FORMAT.test(trade) ? { trade } : {}),
       savedAt: typeof savedAt === 'number' && Number.isFinite(savedAt) ? savedAt : 0,
     });
   }

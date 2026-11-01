@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Check, Copy } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -29,6 +30,8 @@ function selectContents(id: string) {
  * it by hand. Never throws.
  */
 export function CopyButton({ text, label, targetId }: { text: string; label: string; targetId?: string }) {
+  const t = useTranslations("website.copy");
+  const tc = useTranslations("common.actions");
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -65,12 +68,12 @@ export function CopyButton({ text, label, targetId }: { text: string; label: str
         )}
       >
         {state === "copied" ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
-        {state === "copied" ? "Copié" : state === "failed" ? "Copiez à la main" : "Copier"}
+        {state === "copied" ? tc("copied") : state === "failed" ? t("failed") : tc("copy")}
         <span className="sr-only"> {label}</span>
       </button>
       {/* Always on the page, so that a screen reader says what is put in it. */}
       <span role="status" aria-live="polite" className="sr-only">
-        {state === "copied" ? `Copié : ${label}.` : state === "failed" ? `Copie impossible : ${label} est sélectionné, copiez-le à la main.` : ""}
+        {state === "copied" ? t("announceCopied", { label }) : state === "failed" ? t("announceFailed", { label }) : ""}
       </span>
     </>
   );

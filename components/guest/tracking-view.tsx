@@ -3,36 +3,43 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { AlertTriangle, Check, Loader2, MapPin, Phone, WifiOff } from "lucide-react";
 
 import { InvoicePanel } from "@/components/guest/invoice-panel";
+import { Ltr } from "@/components/ltr";
 import { PaymentHistory } from "@/components/guest/payment-history";
 import { PaymentPanel } from "@/components/guest/payment-panel";
 import { QuotePanel } from "@/components/guest/quote-panel";
 import { AddPhotosPanel, FeedbackPanel, FeedbackThanks, ProblemPanel } from "@/components/guest/tracking-panels";
 import { send } from "@/lib/api";
+import { dateFormats, when } from "@/lib/dates";
 import { forgetRequest, isTrackingToken, rememberRequest } from "@/lib/saved-requests";
 import { TrackingPoller } from "@/lib/tracking-poller";
 import {
   TRACKING_REFRESH_MS,
-  TRADES,
   callApi,
   canAddPhotos,
   cardCheckDue,
   cardPaymentOf,
   canGiveFeedback,
   hasGivenFeedback,
+  isTradeCode,
+  isolateFor,
   recordIdOf,
   routes,
   statusGroupOf,
   trackingProgress,
+  tradeService,
   transferDetails,
   visitorStatus,
   wantsPaymentOptions,
+  type Locale,
   type PaymentOptions,
   type StatusTone,
   type TrackingIntervention,
 } from "@/lib/shared";
+import { useAppLocale, useLatest, useOnLanguageChange } from "@/lib/use-app-locale";
 import { cn } from "@/lib/utils";
 
 const TONE_CLASS: Record<StatusTone, string> = {
@@ -46,21 +53,9 @@ const TONE_CLASS: Record<StatusTone, string> = {
 
 type Phase = "loading" | "ready" | "invalid";
 
-const time = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" });
-const dayAndTime = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
-
-function when(value: string | null | undefined, format: Intl.DateTimeFormat): string | null {
-  if (!value) return null;
-
-  const date = new Date(value);
-
-  return Number.isNaN(date.getTime()) ? null : format.format(date);
-}
-
-function serviceName(job: TrackingIntervention): string {
-  const trades = TRADES as Record<string, { service: string } | undefined>;
-
-  return job.subService?.name ?? trades[job.serviceType]?.service ?? "Intervention";
+/** What the request is about: the service the team chose (a text from the server), else the trade in the language of the page. */
+function serviceOf(job: TrackingIntervention, locale: Locale, fallback: string): string {
+  return job.subService?.name ?? (isTradeCode(job.serviceType) ? tradeService(job.serviceType, locale) : fallback);
 }
 
 /** A phone number the browser may be asked to dial: digits, spaces, "+", "-", "(", ")" only. */
@@ -71,23 +66,26 @@ function dialable(phone: string | null | undefined): string | null {
 }
 
 function InvalidLink({ expired }: { expired?: boolean }) {
+  const t = useTranslations("website.tracking");
+
   return (
     <div role="alert" className="mx-auto w-full max-w-lg rounded-xl border border-stone-200 bg-white p-8 text-center shadow-sm">
       <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-amber-500" />
-      <h1 className="text-xl font-bold text-blue-950">Lien de suivi invalide</h1>
-      <p className="mt-2 text-stone-600">
-        {expired
-          ? "Ce lien ne correspond à aucune demande (ou il a expiré). Utilisez le lien reçu par SMS."
-          : "Ce lien est incomplet. Ouvrez-le depuis le SMS reçu, en entier."}
-      </p>
+      <h1 className="text-xl font-bold text-blue-950">{t("invalid.title")}</h1>
+      <p className="mt-2 text-stone-600">{expired ? t("invalid.expired") : t("invalid.incomplete")}</p>
       <Link href="/demande" className="mt-6 inline-block font-semibold text-[#B69121] underline">
-        Faire une nouvelle demande
+        {t("invalid.again")}
       </Link>
     </div>
   );
 }
 
 function Tracking({ id, token }: { id: number; token: string }) {
+  const t = useTranslations("website.tracking");
+  const tn = useTranslations("website.nav");
+  const tc = useTranslations("common.actions");
+  const locale = useAppLocale();
+  const formats = dateFormats(locale);
   const [phase, setPhase] = useState<Phase>("loading");
   const [job, setJob] = useState<TrackingIntervention | null>(null);
   const [failures, setFailures] = useState(0);
@@ -96,6 +94,10 @@ function Tracking({ id, token }: { id: number; token: string }) {
   const [trackingReads, setTrackingReads] = useState(0);
   const [optionReads, setOptionReads] = useState(0);
   const [notice, setNotice] = useState("");
+  const serviceFallback = t("serviceFallback");
+  // What the poller writes is in the language on the page when it writes it: a change of language must not start it again (that would
+  // forget what it knows of the request, and ask the server at once).
+  const said = useLatest({ locale, serviceFallback });
   // How the customer may pay (P2-06): read after the request when it has an accepted quote or an invoice, and again after each action.
   const [options, setOptions] = useState<PaymentOptions | null>(null);
   const [optionsFailed, setOptionsFailed] = useState(false);
@@ -161,13 +163,14 @@ function Tracking({ id, token }: { id: number; token: string }) {
 
     const poller = new TrackingPoller({
       load: () => callApi(send, routes.guest.track(id, token)),
+      locale: () => said.current.locale,
       now: () => Date.now(),
       isHidden: () => document.hidden,
       setTimer: (run, ms) => setTimeout(run, ms),
       clearTimer: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
-      onAnswer: (data, said) => {
+      onAnswer: (data, announcement) => {
         // Nothing is announced for the first answer (the page is simply opening), only for a change.
-        if (said) setNotice(said);
+        if (announcement) setNotice(announcement);
 
         setJob(data);
         setPhase("ready");
@@ -180,7 +183,13 @@ function Tracking({ id, token }: { id: number; token: string }) {
 
         if (!remembered) {
           remembered = true;
-          rememberRequest({ id, token, service: serviceName(data), savedAt: Date.now() });
+          rememberRequest({
+            id,
+            token,
+            service: serviceOf(data, said.current.locale, said.current.serviceFallback),
+            ...(!data.subService && isTradeCode(data.serviceType) ? { trade: data.serviceType } : {}),
+            savedAt: Date.now(),
+          });
         }
       },
       onFailure: (count) => {
@@ -207,7 +216,15 @@ function Tracking({ id, token }: { id: number; token: string }) {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", onOnline);
     };
-  }, [id, token, readOptions]);
+  }, [id, token, readOptions, said]);
+
+  // The sentences the server wrote for the page (the timeline, the reason a way of paying is not offered) are in the language of the
+  // call that read them: one new read, in the new language, and the poller goes on as it was.
+  useOnLanguageChange(() => {
+    setNotice(""); // the sentence read aloud for a change of status is in the old language
+    refreshNow.current();
+    void readOptions();
+  });
 
   // After an answer to the quote or a payment request: the request and the options are read again at once.
   const onActed = useCallback(() => {
@@ -235,20 +252,20 @@ function Tracking({ id, token }: { id: number; token: string }) {
     return (
       <div className="mx-auto w-full max-w-lg space-y-4 rounded-xl border border-stone-200 bg-white p-10 text-center text-stone-600">
         <p role="status" className="flex items-center justify-center gap-3">
-          <Loader2 className="h-5 w-5 animate-spin" /> Chargement de votre demande…
+          <Loader2 className="h-5 w-5 animate-spin" /> {t("loading.text")}
         </p>
         {failures >= 1 && (
           <div role="alert" className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
             <p className="flex items-start justify-center gap-2">
               <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />
-              Connexion difficile : la demande n’a pas pu être chargée. La page réessaie toute seule.
+              {t("loading.difficult")}
             </p>
             <button
               type="button"
               onClick={() => refreshNow.current()}
               className="h-10 rounded-md border border-amber-400 bg-white px-4 font-semibold text-amber-900 hover:bg-amber-100"
             >
-              Réessayer maintenant
+              {tn("retryNow")}
             </button>
           </div>
         )}
@@ -256,13 +273,13 @@ function Tracking({ id, token }: { id: number; token: string }) {
     );
   }
 
-  const words = visitorStatus(job.status);
+  const words = visitorStatus(job.status, locale);
   const group = statusGroupOf(job.status);
-  const { steps, halted } = trackingProgress(job.status);
+  const { steps, halted } = trackingProgress(job.status, locale);
   const artisanPhone = dialable(job.artisan?.phone);
   const showArtisan = group === "active" && Boolean(job.artisan?.name);
-  const created = when(job.createdAt, dayAndTime);
-  const changed = when(job.lastStatusChangedAt, dayAndTime);
+  const created = when(job.createdAt, formats.dayAndTime);
+  const changed = when(job.lastStatusChangedAt, formats.dayAndTime);
   const photoCount = job.photos?.length ?? 0;
 
   return (
@@ -272,31 +289,31 @@ function Tracking({ id, token }: { id: number; token: string }) {
       {failures >= 2 && (
         <p role="status" className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
           <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />
-          Connexion instable. Ce que vous voyez date de {answeredAt ? time.format(answeredAt) : "tout à l’heure"} ; la page réessaie toute seule.
+          {answeredAt ? t("unstable.withTime", { time: isolateFor(locale, formats.time.format(answeredAt)) }) : t("unstable.noTime")}
         </p>
       )}
 
       <header className="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
         <div className="h-2 w-full bg-gradient-to-r from-[#D4AF37] to-[#B69121]" />
         <div className="space-y-1 p-5">
-          <h1 className="text-2xl font-bold text-blue-950">Demande n° {job.id}</h1>
-          <p className="font-medium text-stone-700">{serviceName(job)}</p>
+          <h1 className="text-2xl font-bold text-blue-950">{t("header.title", { id: job.id })}</h1>
+          <p className="font-medium text-stone-700" dir="auto">{serviceOf(job, locale, serviceFallback)}</p>
           <p className="flex items-start gap-1.5 text-sm text-stone-500">
             <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-            <span className="break-words">{job.address}</span>
+            <span className="break-words" dir="auto">{job.address}</span>
           </p>
-          {created && <p className="text-xs text-stone-500">Demandée le {created}</p>}
+          {created && <p className="text-xs text-stone-500">{t("header.requestedOn", { date: isolateFor(locale, created) })}</p>}
         </div>
       </header>
 
       <section className={cn("rounded-xl border p-5", TONE_CLASS[words.tone])} aria-labelledby="status-title">
-        <p className="text-xs font-bold uppercase tracking-wider opacity-70">État de la demande</p>
+        <p className="text-xs font-bold uppercase tracking-wider opacity-70">{t("status.label")}</p>
         <h2 id="status-title" className="mt-1 text-xl font-bold">
           {words.title}
         </h2>
         <p className="mt-1 text-sm opacity-90">{words.message}</p>
-        {halted === "cancelled" && job.cancelledReason && <p className="mt-3 text-sm font-medium">Motif : {job.cancelledReason}</p>}
-        {changed && <p className="mt-3 text-xs opacity-70">Dernier changement : {changed}</p>}
+        {halted === "cancelled" && job.cancelledReason && <p className="mt-3 text-sm font-medium" dir="auto">{t("status.reason", { reason: isolateFor(locale, job.cancelledReason) })}</p>}
+        {changed && <p className="mt-3 text-xs opacity-70">{t("status.changedAt", { date: isolateFor(locale, changed) })}</p>}
       </section>
 
       {/* Read out by a screen reader when the status changes, never on the first draw. */}
@@ -305,7 +322,7 @@ function Tracking({ id, token }: { id: number; token: string }) {
       </p>
 
       {!halted && (
-        <ol className="grid grid-cols-5 gap-1" aria-label="Avancement">
+        <ol className="grid grid-cols-5 gap-1" aria-label={t("progress.label")}>
           {steps.map((step, index) => (
             <li key={step.label} aria-current={step.state === "current" ? "step" : undefined} className="flex flex-col items-center gap-1.5 text-center">
               <span
@@ -320,7 +337,10 @@ function Tracking({ id, token }: { id: number; token: string }) {
               </span>
               <span className={cn("text-[11px] leading-tight", step.state === "todo" ? "text-stone-400" : "font-semibold text-stone-700")}>
                 {step.label}
-                <span className="sr-only">{step.state === "done" ? " (fait)" : step.state === "current" ? " (en cours)" : " (à venir)"}</span>
+                <span className="sr-only">
+                  {" "}
+                  {step.state === "done" ? t("progress.done") : step.state === "current" ? t("progress.current") : t("progress.todo")}
+                </span>
               </span>
             </li>
           ))}
@@ -332,15 +352,15 @@ function Tracking({ id, token }: { id: number; token: string }) {
       {showArtisan && (
         <section className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm" aria-labelledby="artisan-title">
           <h2 id="artisan-title" className="text-xs font-bold uppercase tracking-wider text-[#B69121]">
-            Votre technicien
+            {t("artisan.title")}
           </h2>
-          <p className="mt-1 text-xl font-bold text-blue-950">{job.artisan?.name}</p>
+          <p className="mt-1 text-xl font-bold text-blue-950" dir="auto">{job.artisan?.name}</p>
           {artisanPhone && (
             <a
               href={`tel:${artisanPhone}`}
               className="mt-3 inline-flex h-11 items-center gap-2 rounded-lg border border-stone-200 px-4 font-semibold text-blue-950 hover:border-[#D4AF37] hover:text-[#B69121]"
             >
-              <Phone className="h-4 w-4" /> {job.artisan?.phone}
+              <Phone className="h-4 w-4" /> <Ltr>{job.artisan?.phone}</Ltr>
             </a>
           )}
         </section>
@@ -350,21 +370,21 @@ function Tracking({ id, token }: { id: number; token: string }) {
       {/* A request cancelled after a payment was asked for has no payment block: what was recorded is still told. */}
       {!wantsPaymentOptions(job) && <PaymentHistory payments={job.payments} framed />}
       {wantsPaymentOptions(job) && !options && (
-        <section className="rounded-xl border border-stone-200 bg-white p-5 text-sm text-stone-600 shadow-sm" aria-label="Paiement">
+        <section className="rounded-xl border border-stone-200 bg-white p-5 text-sm text-stone-600 shadow-sm" aria-label={t("payment.label")}>
           {optionsFailed ? (
             <div role="alert" className="space-y-3">
-              <p>Les modes de paiement n’ont pas pu être chargés.</p>
+              <p>{t("payment.loadFailed")}</p>
               <button
                 type="button"
                 onClick={() => void readOptions()}
                 className="h-10 rounded-md border border-stone-300 bg-white px-4 font-semibold text-stone-800 hover:border-[#D4AF37] hover:text-[#B69121]"
               >
-                Réessayer
+                {tc("retry")}
               </button>
             </div>
           ) : (
             <p role="status" className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Chargement du paiement…
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> {t("payment.loading")}
             </p>
           )}
         </section>
@@ -375,9 +395,7 @@ function Tracking({ id, token }: { id: number; token: string }) {
 
       <div className={cn("contents", printing && "print:hidden")}>
       {photoCount > 0 && (
-        <p className="text-sm text-stone-500">
-          {photoCount} photo{photoCount > 1 ? "s" : ""} jointe{photoCount > 1 ? "s" : ""} à votre demande.
-        </p>
+        <p className="text-sm text-stone-500">{t("photos", { count: photoCount })}</p>
       )}
 
       {canGiveFeedback(job) && <FeedbackPanel id={id} token={token} onSaved={onSaved} />}
@@ -387,12 +405,12 @@ function Tracking({ id, token }: { id: number; token: string }) {
 
       <footer className="space-y-1 text-center text-xs text-stone-500">
         <p>
-          Cette page se met à jour toute seule (toutes les {TRACKING_REFRESH_MS / 1000} secondes).
-          {answeredAt ? ` Dernière mise à jour : ${time.format(answeredAt)}.` : ""}
+          {t("footer.refresh", { seconds: TRACKING_REFRESH_MS / 1000 })}
+          {answeredAt ? ` ${t("footer.lastUpdate", { time: isolateFor(locale, formats.time.format(answeredAt)) })}` : ""}
         </p>
         <p>
           <Link href="/demande" className="font-semibold text-[#B69121] underline">
-            Mes demandes
+            {tn("myRequests")}
           </Link>
         </p>
       </footer>
@@ -413,12 +431,14 @@ function FromAddress() {
 }
 
 export function TrackingView() {
+  const tc = useTranslations("common.states");
+
   // useSearchParams needs a Suspense boundary in a statically rendered page.
   return (
     <Suspense
       fallback={
         <div className="mx-auto flex w-full max-w-lg items-center justify-center gap-3 p-10 text-stone-600" role="status">
-          <Loader2 className="h-5 w-5 animate-spin" /> Chargement…
+          <Loader2 className="h-5 w-5 animate-spin" /> {tc("loading")}
         </div>
       }
     >

@@ -14,16 +14,23 @@
  * - after `stop()` nothing is reported, whatever is still on its way.
  */
 import {
+  DEFAULT_LOCALE,
   apiErrorStatus,
   isStale,
   nextRefreshDelay,
   statusChangeNotice,
+  type Locale,
   type TrackingIntervention,
 } from '@/lib/shared';
 
 export interface PollerDeps {
   /** One call to the server for this request. */
   load: () => Promise<TrackingIntervention>;
+  /**
+   * The language of the notice announced when the status changes (French when not given). A function is read each time a notice is
+   * made, so that the poller does not have to be started again when the visitor changes the language of the page.
+   */
+  locale?: Locale | (() => Locale);
   now: () => number;
   /** True while the tab is not shown. */
   isHidden: () => boolean;
@@ -84,6 +91,12 @@ export class TrackingPoller {
     return this.run(true);
   }
 
+  private language(): Locale {
+    const { locale } = this.deps;
+
+    return (typeof locale === 'function' ? locale() : locale) ?? DEFAULT_LOCALE;
+  }
+
   private async run(asked: boolean): Promise<void> {
     if (this.stopped) return;
 
@@ -108,7 +121,7 @@ export class TrackingPoller {
       this.failures = 0;
       this.lastAnswerAt = this.deps.now();
 
-      const notice = this.lastStatus === null ? null : statusChangeNotice(this.lastStatus, job.status);
+      const notice = this.lastStatus === null ? null : statusChangeNotice(this.lastStatus, job.status, this.language());
 
       this.lastStatus = job.status;
       this.deps.onAnswer(job, notice);

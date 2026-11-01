@@ -10,6 +10,9 @@ import { GUEST_LIMITS, PHOTO_SHRINK_ABOVE_BYTES, fitWithin } from '@/lib/shared'
 
 export const PHOTO_ACCEPT = GUEST_LIMITS.photoTypes.join(',');
 
+/** The names of the formats the form takes, as people write them: file formats are not translated. */
+export const PHOTO_FORMAT_NAMES = ['JPEG', 'PNG', 'WebP'];
+
 export async function preparePhoto(file: File): Promise<File> {
   if (file.size <= PHOTO_SHRINK_ABOVE_BYTES) return file;
 

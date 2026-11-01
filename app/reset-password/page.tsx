@@ -4,7 +4,10 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, KeyRound, Loader2, ShieldCheck } from "lucide-react";
+import { useTranslations } from "next-intl";
 import api from "@/lib/api";
+import type { Translate } from "@/lib/translate";
+import { useOnLanguageChange } from "@/lib/use-app-locale";
 
 /**
  * Landing page of the one-time links sent by the API:
@@ -15,14 +18,16 @@ import api from "@/lib/api";
  */
 
 // Same rules as the API (ResetPasswordDto).
-function passwordProblem(password: string): string | null {
-  if (password.length < 8) return "Au moins 8 caractères.";
-  if (!/[A-Z]/.test(password)) return "Au moins une majuscule.";
-  if (!/[0-9]/.test(password)) return "Au moins un chiffre.";
+function passwordProblem(password: string, t: Translate): string | null {
+  if (password.length < 8) return t("problems.length");
+  if (!/[A-Z]/.test(password)) return t("problems.upper");
+  if (!/[0-9]/.test(password)) return t("problems.digit");
   return null;
 }
 
 function ResetPasswordForm() {
+  const t = useTranslations("website.resetPassword");
+  const tn = useTranslations("website.nav");
   const searchParams = useSearchParams();
 
   // The token is read ONCE, at the first render. Removing it from the address
@@ -34,6 +39,8 @@ function ResetPasswordForm() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDone, setIsDone] = useState(false);
+
+  useOnLanguageChange(() => setError(""));
 
   // Take the token out of the address bar, so it does not stay in the history
   // or leak through a Referer header.
@@ -47,7 +54,7 @@ function ResetPasswordForm() {
     e.preventDefault();
     setError("");
 
-    const problem = passwordProblem(password);
+    const problem = passwordProblem(password, t);
 
     if (problem) {
       setError(problem);
@@ -55,7 +62,7 @@ function ResetPasswordForm() {
     }
 
     if (password !== confirmation) {
-      setError("Les deux mots de passe ne sont pas identiques.");
+      setError(t("problems.mismatch"));
       return;
     }
 
@@ -66,13 +73,11 @@ function ResetPasswordForm() {
       setIsDone(true);
     } catch (err: any) {
       if (err.response?.status === 429) {
-        setError("Trop de tentatives. Réessayez dans quelques minutes.");
+        setError(t("errors.tooMany"));
       } else if (err.response?.status === 400 || err.response?.status === 401) {
-        setError(
-          "Ce lien n'est plus valable (expiré ou déjà utilisé). Demandez un nouveau lien.",
-        );
+        setError(t("errors.expired"));
       } else {
-        setError("Une erreur est survenue. Veuillez réessayer.");
+        setError(t("errors.generic"));
       }
     } finally {
       setIsLoading(false);
@@ -80,7 +85,7 @@ function ResetPasswordForm() {
   };
 
   return (
-    <div className="min-h-screen font-sans bg-stone-50 text-stone-800">
+    <div className="flex-1 font-sans bg-stone-50 text-stone-800">
       <header className="w-full border-b border-[#D4AF37]/20 bg-white">
         <div className="container mx-auto px-4 h-16 flex items-center">
           <Link href="/" className="flex items-center gap-2 font-bold text-xl text-blue-950">
@@ -97,34 +102,29 @@ function ResetPasswordForm() {
           {isDone ? (
             <div className="text-center space-y-4">
               <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />
-              <h1 className="text-2xl font-bold text-blue-950">Mot de passe enregistré</h1>
-              <p className="text-stone-600">
-                Vous pouvez maintenant vous connecter avec votre nouveau mot de passe
-                dans l&apos;application.
-              </p>
+              <h1 className="text-2xl font-bold text-blue-950">{t("done.title")}</h1>
+              <p className="text-stone-600">{t("done.text")}</p>
               <Link href="/" className="inline-block text-sm font-medium text-[#B69121] hover:underline">
-                Retour à l&apos;accueil
+                {tn("backHome")}
               </Link>
             </div>
           ) : !token ? (
             <div className="text-center space-y-4">
-              <h1 className="text-2xl font-bold text-blue-950">Lien incomplet</h1>
-              <p className="text-stone-600">
-                Ouvrez le lien tel que vous l&apos;avez reçu, ou demandez-en un nouveau.
-              </p>
+              <h1 className="text-2xl font-bold text-blue-950">{t("incomplete.title")}</h1>
+              <p className="text-stone-600">{t("incomplete.text")}</p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} noValidate className="space-y-5">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-full bg-[#D4AF37]/15 text-[#B69121]">
                   <KeyRound className="h-5 w-5" />
                 </div>
-                <h1 className="text-2xl font-bold text-blue-950">Choisissez votre mot de passe</h1>
+                <h1 className="text-2xl font-bold text-blue-950">{t("form.title")}</h1>
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-stone-700" htmlFor="password">
-                  Nouveau mot de passe
+                  {t("form.newPassword")}
                 </label>
                 <input
                   id="password"
@@ -135,14 +135,12 @@ function ResetPasswordForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-lg border border-stone-300 px-3 py-2.5 outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]"
                 />
-                <p className="text-xs text-stone-500">
-                  8 caractères minimum, avec une majuscule et un chiffre.
-                </p>
+                <p className="text-xs text-stone-500">{t("form.hint")}</p>
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-stone-700" htmlFor="confirmation">
-                  Confirmer le mot de passe
+                  {t("form.confirm")}
                 </label>
                 <input
                   id="confirmation"
@@ -168,10 +166,10 @@ function ResetPasswordForm() {
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="h-5 w-5 animate-spin" /> Enregistrement...
+                    <Loader2 className="h-5 w-5 animate-spin" /> {t("form.saving")}
                   </>
                 ) : (
-                  "Enregistrer le mot de passe"
+                  t("form.submit")
                 )}
               </button>
             </form>

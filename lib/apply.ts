@@ -3,7 +3,9 @@
  * made. One multipart request: the fields as JSON in `data`, the documents as files. The server
  * checks everything again (and reads the first bytes of each file); this only saves a round trip.
  */
-import { apiErrorBody, apiErrorStatus } from "./shared";
+import { PHOTO_FORMAT_NAMES } from "./photos";
+import { DEFAULT_LOCALE, apiErrorBody, apiErrorStatus, type Locale } from "./shared";
+import type { Translate } from "./translate";
 
 export const MAX_DOCUMENT_MB = 5;
 export const MAX_DOCUMENT_BYTES = MAX_DOCUMENT_MB * 1024 * 1024;
@@ -44,42 +46,45 @@ export const EMPTY_FORM: ApplicationForm = {
   zoneIds: [],
 };
 
-/** Why a chosen file cannot be sent, or null. A missing file is a problem only when required. */
-export function documentProblem(file: File | null | undefined, label: string, required: boolean): string | null {
-  if (!file) return required ? `${label} : ajoutez un fichier.` : null;
+/**
+ * Why a chosen file cannot be sent, or null. A missing file is a problem only when required. `t` is the translator of the namespace
+ * `website.join`; the sentence is written in `locale`.
+ */
+export function documentProblem(file: File | null | undefined, label: string, required: boolean, t: Translate, locale: Locale = DEFAULT_LOCALE): string | null {
+  if (!file) return required ? t("problems.fileMissing", { label }) : null;
 
   if (!(DOCUMENT_TYPES as readonly string[]).includes(file.type)) {
-    return `${label} : envoyez une photo (JPEG, PNG, WebP) ou un PDF.`;
+    return t("problems.fileType", { label, formats: PHOTO_FORMAT_NAMES.join(locale === "ar" ? "، " : ", ") });
   }
 
-  if (file.size > MAX_DOCUMENT_BYTES) return `${label} : ${MAX_DOCUMENT_MB} Mo au maximum.`;
-  if (file.size === 0) return `${label} : le fichier est vide.`;
+  if (file.size > MAX_DOCUMENT_BYTES) return t("problems.fileTooBig", { label, mb: MAX_DOCUMENT_MB });
+  if (file.size === 0) return t("problems.fileEmpty", { label });
 
   return null;
 }
 
-/** Everything wrong with the form, one sentence each; empty when it can be sent. */
-export function applicationProblems(form: ApplicationForm, files: ApplicationFiles): string[] {
+/** Everything wrong with the form, one sentence each; empty when it can be sent. `t` is the translator of the namespace `website.join`. */
+export function applicationProblems(form: ApplicationForm, files: ApplicationFiles, t: Translate, locale: Locale = DEFAULT_LOCALE): string[] {
   const problems: string[] = [];
 
-  if (!form.name.trim()) problems.push("Indiquez votre nom.");
-  if (!form.email.trim()) problems.push("Indiquez votre e-mail.");
-  if (!form.phone.trim()) problems.push("Indiquez votre téléphone.");
-  if (!form.trades.length) problems.push("Choisissez au moins un métier.");
-  if (!form.zoneIds.length) problems.push("Choisissez au moins une zone d’intervention.");
+  if (!form.name.trim()) problems.push(t("problems.name"));
+  if (!form.email.trim()) problems.push(t("problems.email"));
+  if (!form.phone.trim()) problems.push(t("problems.phone"));
+  if (!form.trades.length) problems.push(t("problems.trades"));
+  if (!form.zoneIds.length) problems.push(t("problems.zones"));
 
   const years = Number(form.yearsExperience);
 
   if (form.yearsExperience.trim() === "" || !Number.isInteger(years) || years < 0 || years > 60) {
-    problems.push("Les années d’expérience doivent être un nombre entier entre 0 et 60.");
+    problems.push(t("problems.years"));
   }
 
   for (const [file, label, required] of [
-    [files.identity, "Pièce d’identité", true],
-    [files.company, "Document de l’entreprise", false],
-    [files.insurance, "Attestation d’assurance", false],
+    [files.identity, t("documents.identity"), true],
+    [files.company, t("documents.company"), false],
+    [files.insurance, t("documents.insurance"), false],
   ] as const) {
-    const problem = documentProblem(file, label, required);
+    const problem = documentProblem(file, label, required, t, locale);
 
     if (problem) problems.push(problem);
   }

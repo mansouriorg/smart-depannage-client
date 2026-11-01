@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Camera, X } from "lucide-react";
 
-import { PHOTO_ACCEPT } from "@/lib/photos";
-import { GUEST_LIMITS, pickPhotos } from "@/lib/shared";
+import { PHOTO_ACCEPT, PHOTO_FORMAT_NAMES } from "@/lib/photos";
+import { GUEST_LIMITS, INTL_TAGS, pickPhotos } from "@/lib/shared";
+import { useAppLocale, useOnLanguageChange } from "@/lib/use-app-locale";
 
 interface PhotoPickerProps {
   files: File[];
@@ -17,6 +19,7 @@ interface PhotoPickerProps {
 }
 
 function Thumbnail({ file, onRemove, disabled }: { file: File; onRemove: () => void; disabled?: boolean }) {
+  const t = useTranslations("website.photos");
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,14 +37,14 @@ function Thumbnail({ file, onRemove, disabled }: { file: File; onRemove: () => v
     <li className="relative h-20 w-20 overflow-hidden rounded-lg border border-stone-200 bg-stone-100">
       {url && (
         // eslint-disable-next-line @next/next/no-img-element -- a local preview (blob:) that next/image cannot optimize
-        <img src={url} alt={`Photo jointe : ${file.name}`} className="h-full w-full object-cover" />
+        <img src={url} alt={t("alt", { name: file.name })} className="h-full w-full object-cover" />
       )}
       <button
         type="button"
         onClick={onRemove}
         disabled={disabled}
-        aria-label={`Retirer la photo ${file.name}`}
-        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-blue-950/80 text-white hover:bg-blue-950 disabled:opacity-50"
+        aria-label={t("remove", { name: file.name })}
+        className="absolute end-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-blue-950/80 text-white hover:bg-blue-950 disabled:opacity-50"
       >
         <X className="h-3.5 w-3.5" />
       </button>
@@ -51,9 +54,13 @@ function Thumbnail({ file, onRemove, disabled }: { file: File; onRemove: () => v
 
 /** Picks pictures of the problem: JPEG, PNG or WebP up to 5 MB, 6 in all. The problems are said, the good ones are kept. */
 export function PhotoPicker({ files, onChange, alreadyHeld = 0, disabled, error }: PhotoPickerProps) {
+  const t = useTranslations("website.photos");
+  const locale = useAppLocale();
   const input = useRef<HTMLInputElement>(null);
   const [problems, setProblems] = useState<string[]>([]);
   const held = alreadyHeld + files.length;
+
+  useOnLanguageChange(() => setProblems([]));
   const full = held >= GUEST_LIMITS.photosTotal;
 
   function onPick(list: FileList | null) {
@@ -64,7 +71,7 @@ export function PhotoPicker({ files, onChange, alreadyHeld = 0, disabled, error 
 
     if (picked.length === 0) return;
 
-    const { keep, problems: refused } = pickPhotos(held, picked);
+    const { keep, problems: refused } = pickPhotos(held, picked, locale);
 
     setProblems(refused);
 
@@ -73,7 +80,7 @@ export function PhotoPicker({ files, onChange, alreadyHeld = 0, disabled, error 
 
   return (
     <div className="space-y-3">
-      <ul className="flex flex-wrap gap-3" aria-label="Photos jointes">
+      <ul className="flex flex-wrap gap-3" aria-label={t("listLabel")}>
         {files.map((file, index) => (
           <Thumbnail
             key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
@@ -94,7 +101,7 @@ export function PhotoPicker({ files, onChange, alreadyHeld = 0, disabled, error 
               className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-stone-300 text-xs font-semibold text-stone-500 transition-colors hover:border-[#D4AF37] hover:text-[#B69121] disabled:opacity-50"
             >
               <Camera className="h-5 w-5" />
-              Ajouter
+              {t("add")}
             </button>
           </li>
         )}
@@ -112,7 +119,11 @@ export function PhotoPicker({ files, onChange, alreadyHeld = 0, disabled, error 
       />
 
       <p className="text-xs text-stone-500">
-        JPEG, PNG ou WebP, 5 Mo au maximum chacune. {GUEST_LIMITS.photosTotal} photos au plus ({held}/{GUEST_LIMITS.photosTotal}).
+        {t("rules", {
+          formats: new Intl.ListFormat(INTL_TAGS[locale], { type: "disjunction" }).format(PHOTO_FORMAT_NAMES),
+          mb: GUEST_LIMITS.photoBytes / (1024 * 1024),
+        })}{" "}
+        {t("limit", { total: GUEST_LIMITS.photosTotal, held })}
       </p>
 
       {problems.length > 0 && (

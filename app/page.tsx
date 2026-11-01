@@ -1,5 +1,9 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
+import { PhoneMockup } from "@/components/phone-mockup";
+import { Ltr } from "@/components/ltr";
+import { GUEST_LIMITS } from "@/lib/shared";
 import { 
   Wrench, 
   Zap, 
@@ -8,10 +12,12 @@ import {
   ArrowRight
 } from "lucide-react";
 
-export default function Home() {
+export default async function Home() {
+  const t = await getTranslations("website.home");
+
   return (
     // CHARTE : Fond Beige Pierre (stone-50) & Texte Bleu Nuit (blue-950) pour le contraste
-    <div className="flex flex-col min-h-screen font-sans bg-stone-50 text-stone-800">
+    <div className="flex flex-col flex-1 font-sans bg-stone-50 text-stone-800">
       
       {/* --- HEADER --- */}
       <header className="sticky top-0 z-50 w-full border-b border-[#D4AF37]/20 bg-stone-50/90 backdrop-blur-lg">
@@ -25,23 +31,23 @@ export default function Home() {
           </div>
           
           <nav className="hidden md:flex gap-8 text-sm font-medium text-stone-600">
-            <Link href="#services" className="hover:text-[#B69121] transition-colors">Services</Link>
-            <Link href="#comment-ca-marche" className="hover:text-[#B69121] transition-colors">Comment ça marche</Link>
-            <Link href="/demande" className="hover:text-[#B69121] transition-colors">Suivre ma demande</Link>
+            <Link href="#services" className="hover:text-[#B69121] transition-colors">{t("nav.services")}</Link>
+            <Link href="#comment-ca-marche" className="hover:text-[#B69121] transition-colors">{t("nav.how")}</Link>
+            <Link href="/demande" className="hover:text-[#B69121] transition-colors">{t("nav.track")}</Link>
           </nav>
           
           <div className="flex gap-4 items-center">
             {/* ✅ MODIFICATION : Lien "Devenir Technicien" */}
             <Link href="/rejoindre" className="hidden sm:block">
                <Button variant="ghost" size="sm" className="text-stone-600 hover:text-[#B69121] hover:bg-[#D4AF37]/10 font-bold">
-                 Devenir Technicien
+                 {t("header.join")}
                </Button>
             </Link>
             
             <Link href="/demande">
               {/* BOUTON HEADER : OR */}
               <Button size="sm" className="bg-gradient-to-r from-[#D4AF37] to-[#B69121] hover:from-[#E5C04A] hover:to-[#C7A02C] text-white shadow-md shadow-[#D4AF37]/30 border-none font-semibold">
-                Signaler un problème
+                {t("header.report")}
               </Button>
             </Link>
           </div>
@@ -51,134 +57,56 @@ export default function Home() {
       {/* --- HERO SECTION --- */}
       <section className="relative overflow-hidden pt-16 pb-20 lg:pt-32 lg:pb-28 bg-stone-50">
         {/* Background Decorative Blob (OR DOMINANT) */}
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-[700px] h-[700px] bg-[#D4AF37]/15 rounded-full blur-3xl opacity-70 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-[400px] h-[400px] bg-[#B69121]/10 rounded-full blur-3xl opacity-40 pointer-events-none" />
+        <div className="absolute top-0 end-0 -me-20 -mt-20 w-[700px] h-[700px] bg-[#D4AF37]/15 rounded-full blur-3xl opacity-70 pointer-events-none" />
+        <div className="absolute bottom-0 start-0 -ms-20 -mb-20 w-[400px] h-[400px] bg-[#B69121]/10 rounded-full blur-3xl opacity-40 pointer-events-none" />
         
         <div className="container mx-auto px-4 relative z-10">
           <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
             
             {/* GAUCHE : Texte & CTA */}
-            <div className="flex-1 text-center lg:text-left space-y-8">
+            <div className="flex-1 text-center lg:text-start space-y-8">
               {/* Badge Or */}
               <div className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-4 py-1.5 text-sm font-bold text-[#997b19] shadow-sm">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D4AF37] opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-[#B69121]"></span>
                 </span>
-                Sans compte · Suivi par SMS
+                {t("hero.badge")}
               </div>
               
               <h1 className="text-4xl font-extrabold tracking-tight text-blue-950 sm:text-5xl md:text-6xl leading-[1.1]">
-                Votre urgence technique,<br/>
+                {t("hero.titleFirst")}<br/>
                 {/* TITRE PRINCIPAL EN OR DÉGRADÉ */}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#B69121] via-[#D4AF37] to-[#B69121] drop-shadow-sm">
-                  gérée avec excellence.
+                  {t("hero.titleSecond")}
                 </span>
               </h1>
               
               <p className="max-w-xl mx-auto lg:mx-0 text-lg text-stone-600 leading-relaxed">
-                Plomberie, Électricité, Serrurerie. Décrivez votre problème en trois étapes :
-                notre équipe examine votre demande et désigne un technicien. Vous suivez chaque étape depuis un lien reçu par SMS.
+                {t("hero.lead")}
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link href="/demande" className="w-full sm:w-auto">
                   {/* GROS BOUTON OR MÉTALLIQUE */}
                   <Button size="lg" className="w-full bg-gradient-to-r from-[#D4AF37] via-[#E5C04A] to-[#B69121] hover:brightness-110 text-white text-base h-14 px-8 shadow-xl shadow-[#D4AF37]/40 hover:scale-105 transition-transform duration-200 font-bold border-t border-[#FFF5D1]/50">
-                    Trouver un dépanneur <ArrowRight className="ml-2 h-5 w-5" />
+                    {t("hero.cta")} <ArrowRight className="ms-2 h-5 w-5 rtl:-scale-x-100" />
                   </Button>
                 </Link>
                 <Link href="#comment-ca-marche" className="w-full sm:w-auto">
                   <Button variant="outline" size="lg" className="w-full h-14 px-8 border-stone-300 bg-white hover:bg-stone-50 text-stone-700 font-medium">
-                    Comment ça marche
+                    {t("nav.how")}
                   </Button>
                 </Link>
               </div>
               
               <p className="pt-4 text-sm text-stone-500">
-                Aucun compte à créer : votre numéro de téléphone suffit pour recevoir le lien de suivi.
+                {t("hero.note")}
               </p>
             </div>
 
-            {/* DROITE : VISUEL APP 3D (Gold Accents) */}
-            <div className="flex-1 w-full max-w-md lg:max-w-full relative [perspective:1000px]">
-              
-              {/* Conteneur du téléphone */}
-              <div className="relative z-10 bg-stone-800 rounded-[2.5rem] shadow-2xl shadow-[#D4AF37]/20 border-[6px] border-stone-700 p-2 transform rotate-y-[-10deg] rotate-x-[5deg] hover:rotate-0 transition-all duration-700 overflow-hidden">
-                 
-                 {/* Écran */}
-                 <div className="bg-stone-900 rounded-[2rem] overflow-hidden aspect-[4/3] flex flex-col relative">
-                    
-                    {/* --- 1. FOND DE CARTE --- */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#1a1c2e] to-[#0f111a]">
-                      <svg className="absolute inset-0 w-full h-full opacity-10" xmlns="http://www.w3.org/2000/svg">
-                        <pattern id="roads" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
-                          <path d="M30 0 L30 60 M0 30 L60 30" stroke="#ffffff" strokeWidth="1" fill="none"/>
-                        </pattern>
-                        <rect width="100%" height="100%" fill="url(#roads)"/>
-                      </svg>
-                      {/* Glow Or au centre */}
-                      <div className="absolute top-1/2 left-1/2 w-40 h-40 bg-[#D4AF37]/20 rounded-full blur-2xl"></div>
-                    </div>
-
-                    {/* --- 2. UI CARTE (OR) --- */}
-                    <div className="absolute inset-0 font-sans z-10">
-                        
-                        {/* Ligne de trajet (OR BRILLANT) */}
-                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 400 300">
-                          <path 
-                            d="M100,80 Q250,150 320,220" 
-                            stroke="#FFD700" /* Or vif pour le tracé */
-                            strokeWidth="3"
-                            strokeDasharray="8,8"
-                            fill="none"
-                            strokeLinecap="round"
-                            className="drop-shadow-[0_0_8px_rgba(212,175,55,0.8)]"
-                          >
-                            <animate attributeName="stroke-dashoffset" from="100" to="0" dur="2s" repeatCount="indefinite" />
-                          </path>
-                        </svg>
-
-                        {/* PIN CLIENT (OR) */}
-                        <div className="absolute top-[25%] left-[25%] transform -translate-x-1/2 -translate-y-1/2">
-                            <div className="absolute -inset-6 bg-[#D4AF37]/30 rounded-full animate-ping"></div>
-                            <div className="relative bg-gradient-to-br from-[#F3DFA2] to-[#B69121] text-white p-3 rounded-full shadow-lg shadow-[#D4AF37]/40 border-2 border-white">
-                                <ShieldCheck className="h-6 w-6" />
-                            </div>
-                            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-[#B69121] text-white text-[10px] font-bold px-2 py-1 rounded-md shadow-lg whitespace-nowrap">
-                              Vous
-                            </div>
-                        </div>
-
-                        {/* PIN TECHNICIEN */}
-                        <div className="absolute bottom-[25%] right-[20%] transform translate-x-1/2 translate-y-1/2 z-20">
-                            <div className="bg-gradient-to-br from-stone-700 to-stone-900 text-[#D4AF37] p-2 rounded-full shadow-lg border border-[#D4AF37] animate-bounce">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* --- 3. NOTIFICATION (Bordure Or) --- */}
-                    <div className="absolute bottom-4 left-4 right-4 bg-stone-900/95 backdrop-blur-md p-3 rounded-xl shadow-2xl border border-[#D4AF37]/50 flex items-center gap-3 z-30 animate-in slide-in-from-bottom-5 duration-1000">
-                       <div className="h-10 w-10 bg-stone-800 rounded-full border-2 border-[#D4AF37] overflow-hidden flex-shrink-0 relative">
-                         <div className="absolute inset-0 bg-gradient-to-tr from-[#D4AF37] to-[#8a6c12]"></div>
-                       </div>
-                       <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-center mb-0.5">
-                            <p className="text-sm font-bold text-white truncate">Technicien en route</p>
-                            <span className="text-[10px] font-bold text-[#F3DFA2] bg-[#D4AF37]/20 px-1.5 py-0.5 rounded-full border border-[#D4AF37]/30">Exemple</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-stone-400">
-                            <p className="truncate">Vous êtes prévenu à chaque étape</p>
-                          </div>
-                       </div>
-                    </div>
-
-                 </div>
-              </div>
-              {/* Ombre portée */}
-              <div className="absolute top-10 -right-5 w-full h-full bg-[#D4AF37]/10 rounded-[2.5rem] -z-10 rotate-3 opacity-50 blur-sm" />
-            </div>
+            {/* DROITE : VISUEL APP 3D (Gold Accents) — a drawing, the same in both languages (components/phone-mockup.tsx) */}
+            <PhoneMockup />
 
           </div>
         </div>
@@ -189,20 +117,20 @@ export default function Home() {
         <div className="container mx-auto px-4 py-10">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
                 <div className="space-y-1">
-                    <h4 className="text-2xl md:text-3xl font-extrabold text-[#B69121]">Sans compte</h4>
-                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">Une demande en 3 étapes</p>
+                    <h4 className="text-2xl md:text-3xl font-extrabold text-[#B69121]">{t("facts.noAccount.title")}</h4>
+                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">{t("facts.noAccount.text")}</p>
                 </div>
                 <div className="space-y-1">
-                    <h4 className="text-2xl md:text-3xl font-extrabold text-[#B69121]">Par SMS</h4>
-                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">Votre lien de suivi</p>
+                    <h4 className="text-2xl md:text-3xl font-extrabold text-[#B69121]">{t("facts.sms.title")}</h4>
+                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">{t("facts.sms.text")}</p>
                 </div>
                 <div className="space-y-1">
-                    <h4 className="text-2xl md:text-3xl font-extrabold text-[#B69121]">Avec photos</h4>
-                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">Jusqu'à 6 par demande</p>
+                    <h4 className="text-2xl md:text-3xl font-extrabold text-[#B69121]">{t("facts.photos.title")}</h4>
+                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">{t("facts.photos.text", { max: GUEST_LIMITS.photosTotal })}</p>
                 </div>
                 <div className="space-y-1">
-                    <h4 className="text-2xl md:text-3xl font-extrabold text-[#B69121]">Validés</h4>
-                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">Techniciens approuvés par l'équipe</p>
+                    <h4 className="text-2xl md:text-3xl font-extrabold text-[#B69121]">{t("facts.approved.title")}</h4>
+                    <p className="text-sm text-stone-500 font-bold uppercase tracking-wide">{t("facts.approved.text")}</p>
                 </div>
             </div>
         </div>
@@ -212,8 +140,8 @@ export default function Home() {
       <section id="services" className="py-20 bg-stone-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16 max-w-2xl mx-auto">
-            <h2 className="text-3xl font-bold tracking-tight text-blue-950 sm:text-4xl">Nos domaines d'expertise</h2>
-            <p className="mt-4 text-lg text-stone-600">Nous ne faisons pas tout, mais ce que nous faisons, nous le maîtrisons parfaitement.</p>
+            <h2 className="text-3xl font-bold tracking-tight text-blue-950 sm:text-4xl">{t("services.title")}</h2>
+            <p className="mt-4 text-lg text-stone-600">{t("services.lead")}</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -223,9 +151,9 @@ export default function Home() {
               <div className="h-16 w-16 bg-gradient-to-br from-[#D4AF37] to-[#B69121] text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#D4AF37]/30 group-hover:scale-110 transition-transform">
                 <Wrench className="h-8 w-8" />
               </div>
-              <h3 className="text-xl font-bold mb-3 text-blue-950">Plomberie</h3>
+              <h3 className="text-xl font-bold mb-3 text-blue-950">{t("services.plumbing.title")}</h3>
               <p className="text-stone-600 leading-relaxed">
-                Fuites d'eau urgentes, débouchage de canalisations, réparation de chauffe-eau et installations sanitaires.
+                {t("services.plumbing.text")}
               </p>
             </div>
 
@@ -234,9 +162,9 @@ export default function Home() {
               <div className="h-16 w-16 bg-gradient-to-br from-[#D4AF37] to-[#B69121] text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#D4AF37]/30 group-hover:scale-110 transition-transform">
                 <Zap className="h-8 w-8" />
               </div>
-              <h3 className="text-xl font-bold mb-3 text-blue-950">Électricité</h3>
+              <h3 className="text-xl font-bold mb-3 text-blue-950">{t("services.electricity.title")}</h3>
               <p className="text-stone-600 leading-relaxed">
-                Pannes de courant, mise aux normes, installation de prises et dépannage de tableaux électriques.
+                {t("services.electricity.text")}
               </p>
             </div>
 
@@ -245,9 +173,9 @@ export default function Home() {
               <div className="h-16 w-16 bg-gradient-to-br from-[#D4AF37] to-[#B69121] text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#D4AF37]/30 group-hover:scale-110 transition-transform">
                 <Key className="h-8 w-8" />
               </div>
-              <h3 className="text-xl font-bold mb-3 text-blue-950">Serrurerie</h3>
+              <h3 className="text-xl font-bold mb-3 text-blue-950">{t("services.locksmith.title")}</h3>
               <p className="text-stone-600 leading-relaxed">
-                Ouverture de porte claquée ou fermée à clé, changement de serrure haute sécurité et blindage.
+                {t("services.locksmith.text")}
               </p>
             </div>
           </div>
@@ -257,25 +185,25 @@ export default function Home() {
       {/* --- COMMENT CA MARCHE --- */}
       <section id="comment-ca-marche" className="py-24 bg-[#0f111a] text-white relative overflow-hidden">
         {/* Background Patterns */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-20 pointer-events-none">
-            <div className="absolute -top-24 -left-24 w-96 h-96 bg-[#D4AF37] rounded-full blur-[120px]" />
-            <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#B69121] rounded-full blur-[120px]" />
+        <div className="absolute top-0 start-0 w-full h-full overflow-hidden opacity-20 pointer-events-none">
+            <div className="absolute -top-24 -start-24 w-96 h-96 bg-[#D4AF37] rounded-full blur-[120px]" />
+            <div className="absolute bottom-0 end-0 w-96 h-96 bg-[#B69121] rounded-full blur-[120px]" />
         </div>
 
         <div className="container mx-auto px-4 relative z-10">
-          <h2 className="text-3xl font-bold text-center mb-20 text-[#F3DFA2]">Le processus simplifié</h2>
+          <h2 className="text-3xl font-bold text-center mb-20 text-[#F3DFA2]">{t("how.title")}</h2>
           
           <div className="relative grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
             
             {/* Ligne connectrice (OR) */}
-            <div className="hidden md:block absolute top-8 left-[16%] right-[16%] h-[2px] bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-50" />
+            <div className="hidden md:block absolute top-8 start-[16%] end-[16%] h-[2px] bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-50" />
 
             {/* Step 1 */}
             <div className="relative group space-y-6">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-stone-900 border-2 border-[#D4AF37] text-[#D4AF37] text-2xl font-bold relative z-10 shadow-[0_0_20px_rgba(212,175,55,0.3)] group-hover:scale-110 transition-transform">1</div>
               <div>
-                <h3 className="text-xl font-bold mb-2 text-[#F3DFA2]">Décrivez le problème</h3>
-                <p className="text-stone-400 max-w-xs mx-auto">Choisissez le service, décrivez le problème, ajoutez des photos et indiquez le lieu de l'intervention.</p>
+                <h3 className="text-xl font-bold mb-2 text-[#F3DFA2]">{t("how.step1.title")}</h3>
+                <p className="text-stone-400 max-w-xs mx-auto">{t("how.step1.text")}</p>
               </div>
             </div>
 
@@ -283,8 +211,8 @@ export default function Home() {
             <div className="relative group space-y-6">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#D4AF37] border-2 border-white text-[#0f111a] text-2xl font-bold relative z-10 shadow-[0_0_30px_rgba(212,175,55,0.5)] group-hover:scale-110 transition-transform">2</div>
               <div>
-                <h3 className="text-xl font-bold mb-2 text-[#F3DFA2]">Expert assigné</h3>
-                <p className="text-stone-400 max-w-xs mx-auto">Notre équipe examine votre demande et désigne un technicien.</p>
+                <h3 className="text-xl font-bold mb-2 text-[#F3DFA2]">{t("how.step2.title")}</h3>
+                <p className="text-stone-400 max-w-xs mx-auto">{t("how.step2.text")}</p>
               </div>
             </div>
 
@@ -292,8 +220,8 @@ export default function Home() {
             <div className="relative group space-y-6">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-stone-900 border-2 border-[#D4AF37] text-[#D4AF37] text-2xl font-bold relative z-10 shadow-[0_0_20px_rgba(212,175,55,0.3)] group-hover:scale-110 transition-transform">3</div>
               <div>
-                <h3 className="text-xl font-bold mb-2 text-[#F3DFA2]">Problème résolu</h3>
-                <p className="text-stone-400 max-w-xs mx-auto">Le technicien intervient. Vous suivez chaque étape depuis votre lien et pouvez donner votre avis.</p>
+                <h3 className="text-xl font-bold mb-2 text-[#F3DFA2]">{t("how.step3.title")}</h3>
+                <p className="text-stone-400 max-w-xs mx-auto">{t("how.step3.text")}</p>
               </div>
             </div>
 
@@ -304,12 +232,12 @@ export default function Home() {
       {/* --- FINAL CTA --- */}
       <section className="py-20 bg-stone-50 border-t border-stone-200">
          <div className="container mx-auto px-4 text-center space-y-8">
-            <h2 className="text-3xl md:text-4xl font-bold text-blue-950">Ne laissez pas un souci technique s'aggraver.</h2>
-            <p className="text-stone-600 text-lg max-w-2xl mx-auto">Décrivez votre problème en trois étapes : nous nous occupons du reste.</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-blue-950">{t("cta.title")}</h2>
+            <p className="text-stone-600 text-lg max-w-2xl mx-auto">{t("cta.text")}</p>
             <Link href="/demande" className="inline-block">
               {/* CTA FINALE OR MASSIF */}
               <Button size="lg" className="h-16 px-10 text-xl bg-gradient-to-r from-[#D4AF37] via-[#E5C04A] to-[#B69121] hover:brightness-110 text-white shadow-2xl shadow-[#D4AF37]/40 border-t border-[#FFF5D1]/30 rounded-full font-bold">
-                Demander une intervention maintenant
+                {t("cta.button")}
               </Button>
             </Link>
          </div>
@@ -324,33 +252,33 @@ export default function Home() {
                   <ShieldCheck className="h-5 w-5 text-[#D4AF37]" />
                   <span>Smart-Dépannage</span>
                 </div>
-                <p>Dépannage à domicile en Tunisie.</p>
+                <p>{t("footer.tagline")}</p>
              </div>
              <div>
-                <h4 className="font-bold text-white mb-4">Services</h4>
+                <h4 className="font-bold text-white mb-4">{t("footer.services")}</h4>
                 <ul className="space-y-2">
-                   <li><a href="#" className="hover:text-[#D4AF37] transition">Plomberie</a></li>
-                   <li><a href="#" className="hover:text-[#D4AF37] transition">Électricité</a></li>
-                   <li><a href="#" className="hover:text-[#D4AF37] transition">Serrurerie</a></li>
+                   <li><a href="#" className="hover:text-[#D4AF37] transition">{t("services.plumbing.title")}</a></li>
+                   <li><a href="#" className="hover:text-[#D4AF37] transition">{t("services.electricity.title")}</a></li>
+                   <li><a href="#" className="hover:text-[#D4AF37] transition">{t("services.locksmith.title")}</a></li>
                 </ul>
              </div>
              <div>
-                <h4 className="font-bold text-white mb-4">Entreprise</h4>
+                <h4 className="font-bold text-white mb-4">{t("footer.company")}</h4>
                 <ul className="space-y-2">
-                   <li><a href="#" className="hover:text-[#D4AF37] transition">À propos</a></li>
-                   <li><a href="#" className="hover:text-[#D4AF37] transition">Contact Pro</a></li>
+                   <li><a href="#" className="hover:text-[#D4AF37] transition">{t("footer.about")}</a></li>
+                   <li><a href="#" className="hover:text-[#D4AF37] transition">{t("footer.contact")}</a></li>
                 </ul>
              </div>
              <div>
-                <h4 className="font-bold text-white mb-4">Légal</h4>
+                <h4 className="font-bold text-white mb-4">{t("footer.legal")}</h4>
                 <ul className="space-y-2">
-                   <li><a href="#" className="hover:text-[#D4AF37] transition">CGU / CGV</a></li>
-                   <li><a href="#" className="hover:text-[#D4AF37] transition">Confidentialité</a></li>
+                   <li><a href="#" className="hover:text-[#D4AF37] transition">{t("footer.terms")}</a></li>
+                   <li><a href="#" className="hover:text-[#D4AF37] transition">{t("footer.privacy")}</a></li>
                 </ul>
              </div>
           </div>
           <div className="pt-8 border-t border-stone-800 flex flex-col md:flex-row justify-between items-center">
-            <p>© 2026 Smart-Dépannage.</p>
+            <p><Ltr>© 2026 Smart-Dépannage.</Ltr></p>
           </div>
         </div>
       </footer>

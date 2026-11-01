@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { 
   ShieldCheck, 
   CheckCircle2, 
@@ -13,7 +14,9 @@ import {
   FileText
 } from "lucide-react";
 import api from "@/lib/api"; // ✅ Use your API helper
-import { TRADE_LIST } from "@/lib/shared";
+import { TRADE_LIST, tradeLabel } from "@/lib/shared";
+import { useAppLocale, useOnLanguageChange } from "@/lib/use-app-locale";
+import { typedDir } from "@/lib/text-direction";
 import {
   type ApplicationFiles,
   type ApplicationForm,
@@ -33,9 +36,16 @@ interface ZoneChoice {
 }
 
 export default function JoinPage() {
+  const t = useTranslations("website.join");
+  const tn = useTranslations("website.nav");
+  const tc = useTranslations("common.states");
+  const locale = useAppLocale();
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+
+  // The sentences of the last refusal are in the language they were said in: they are let go when the language changes.
+  useOnLanguageChange(() => setErrors([]));
 
   const [formData, setFormData] = useState<ApplicationForm>(EMPTY_FORM);
   const [files, setFiles] = useState<ApplicationFiles>({ identity: null, company: null, insurance: null });
@@ -78,7 +88,7 @@ export default function JoinPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const problems = applicationProblems(formData, files);
+    const problems = applicationProblems(formData, files, t, locale);
 
     if (problems.length) {
       setErrors(problems);
@@ -99,14 +109,14 @@ export default function JoinPage() {
       window.scrollTo(0, 0); // Scroll to top to see success message
     } catch (err) {
       // The server's own sentences (an e-mail already used, a file it cannot read...), one per line.
-      setErrors(serverProblems(err, "Une erreur est survenue. Veuillez réessayer."));
+      setErrors(serverProblems(err, t("errors.generic")));
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen font-sans bg-stone-50 text-stone-800">
+    <div className="flex-1 font-sans bg-stone-50 text-stone-800">
       
       {/* --- HEADER SIMPLE --- */}
       <header className="w-full border-b border-[#D4AF37]/20 bg-white">
@@ -118,7 +128,7 @@ export default function JoinPage() {
             <span>Smart-Dépannage</span>
           </Link>
           <Link href="/" className="text-sm font-medium text-stone-500 hover:text-[#B69121] transition-colors">
-            Retour à l'accueil
+            {tn("backHome")}
           </Link>
         </div>
       </header>
@@ -127,16 +137,16 @@ export default function JoinPage() {
         <div className="flex flex-col lg:flex-row gap-12 lg:gap-24 items-start">
           
           {/* --- GAUCHE : ARGUMENTS --- */}
-          <div className="flex-1 space-y-8 animate-in slide-in-from-left duration-700">
+          <div className="flex-1 space-y-8 animate-in ltr:slide-in-from-left rtl:slide-in-from-right duration-700">
             <div>
               <h1 className="text-4xl lg:text-5xl font-extrabold text-blue-950 tracking-tight mb-4">
-                Rejoignez l'élite des <br/>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#B69121] to-[#D4AF37]">
-                  artisans certifiés.
+                {t("hero.titleFirst")} <br/>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r rtl:bg-gradient-to-l from-[#B69121] to-[#D4AF37]">
+                  {t("hero.titleSecond")}
                 </span>
               </h1>
               <p className="text-lg text-stone-600 leading-relaxed">
-                Boostez votre chiffre d'affaires sans effort commercial. Nous vous envoyons des missions qualifiées, proches de chez vous.
+                {t("hero.lead")}
               </p>
             </div>
 
@@ -147,8 +157,8 @@ export default function JoinPage() {
                   <Wallet className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-blue-950 text-lg">Revenus Garantis</h3>
-                  <p className="text-stone-500">Paiement sécurisé et rapide après chaque intervention validée.</p>
+                  <h3 className="font-bold text-blue-950 text-lg">{t("benefits.income.title")}</h3>
+                  <p className="text-stone-500">{t("benefits.income.text")}</p>
                 </div>
               </div>
 
@@ -157,8 +167,8 @@ export default function JoinPage() {
                   <Briefcase className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-blue-950 text-lg">Zéro Administratif</h3>
-                  <p className="text-stone-500">Nous gérons la facturation et le service client. Concentrez-vous sur votre métier.</p>
+                  <h3 className="font-bold text-blue-950 text-lg">{t("benefits.admin.title")}</h3>
+                  <p className="text-stone-500">{t("benefits.admin.text")}</p>
                 </div>
               </div>
 
@@ -167,27 +177,27 @@ export default function JoinPage() {
                   <Clock className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-blue-950 text-lg">Liberté Totale</h3>
-                  <p className="text-stone-500">Acceptez ou refusez les missions selon votre emploi du temps.</p>
+                  <h3 className="font-bold text-blue-950 text-lg">{t("benefits.freedom.title")}</h3>
+                  <p className="text-stone-500">{t("benefits.freedom.text")}</p>
                 </div>
               </div>
             </div>
 
             {/* Preuve Sociale */}
-            <div className="p-6 bg-white border border-stone-200 rounded-2xl shadow-sm italic text-stone-600">
-              "Depuis que j'ai rejoint Smart-Dépannage, mon agenda est plein et je n'ai plus à courir après les impayés."
+            <div className="p-6 bg-white border border-stone-200 rounded-2xl shadow-sm italic rtl:not-italic text-stone-600">
+              {t("testimonial.text")}
               <div className="mt-4 flex items-center gap-3 not-italic">
                 <div className="h-10 w-10 bg-stone-200 rounded-full"></div>
                 <div>
-                  <p className="font-bold text-blue-950 text-sm">Karim S.</p>
-                  <p className="text-xs text-[#D4AF37] font-bold">Plombier Partenaire</p>
+                  <p className="font-bold text-blue-950 text-sm">{t("testimonial.name")}</p>
+                  <p className="text-xs text-[#D4AF37] font-bold">{t("testimonial.role")}</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* --- DROITE : FORMULAIRE --- */}
-          <div className="flex-1 w-full max-w-lg mx-auto bg-white p-8 rounded-3xl shadow-2xl shadow-stone-200 border border-stone-100 animate-in slide-in-from-right duration-700">
+          <div className="flex-1 w-full max-w-lg mx-auto bg-white p-8 rounded-3xl shadow-2xl shadow-stone-200 border border-stone-100 animate-in ltr:slide-in-from-right rtl:slide-in-from-left duration-700">
             
             {isSuccess ? (
               // --- ÉTAT SUCCÈS ---
@@ -195,61 +205,64 @@ export default function JoinPage() {
                 <div className="h-20 w-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
                   <CheckCircle2 className="h-10 w-10" />
                 </div>
-                <h2 className="text-2xl font-bold text-blue-950">Candidature envoyée !</h2>
+                <h2 className="text-2xl font-bold text-blue-950">{t("success.title")}</h2>
                 <p className="text-stone-600">
-                  Merci {formData.name}. Notre équipe va examiner votre profil. <br/>
-                  Si votre candidature est retenue, vous recevrez par e-mail un lien pour choisir votre mot de passe.
+                  {t("success.thanks", { name: formData.name })} <br/>
+                  {t("success.next")}
                 </p>
                 <Link href="/">
                   <button className="mt-8 w-full bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold py-3 rounded-xl transition-colors">
-                    Retour à l'accueil
+                    {tn("backHome")}
                   </button>
                 </Link>
               </div>
             ) : (
               // --- FORMULAIRE ---
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} noValidate className="space-y-6">
                 <div className="text-center mb-8">
-                  <h2 className="text-2xl font-bold text-blue-950">Devenir Partenaire</h2>
-                  <p className="text-stone-500 text-sm mt-1">Remplissez ce formulaire pour postuler.</p>
+                  <h2 className="text-2xl font-bold text-blue-950">{t("form.title")}</h2>
+                  <p className="text-stone-500 text-sm mt-1">{t("form.subtitle")}</p>
                 </div>
 
                 {/* Nom Complet */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-stone-500 uppercase">Nom complet</label>
+                  <label className="text-xs font-bold text-stone-500 uppercase">{t("form.name")}</label>
                   <input
                     name="name"
                     required
                     value={formData.name}
                     onChange={handleChange}
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
-                    placeholder="Ex: Karim Tounsi"
+                    placeholder={t("form.namePlaceholder")}
+                    dir={typedDir(formData.name)}
                   />
                 </div>
 
                 {/* Email & Téléphone */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-stone-500 uppercase">Email Pro</label>
+                    <label className="text-xs font-bold text-stone-500 uppercase">{t("form.email")}</label>
                     <input
                       name="email"
                       type="email"
                       required
+                      dir="ltr"
                       value={formData.email}
                       onChange={handleChange}
-                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-start outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
                       placeholder="contact@pro.com"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-stone-500 uppercase">Téléphone</label>
+                    <label className="text-xs font-bold text-stone-500 uppercase">{t("form.phone")}</label>
                     <input
                       name="phone"
                       type="tel"
                       required
+                      dir="ltr"
                       value={formData.phone}
                       onChange={handleChange}
-                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-start outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
                       placeholder="+216 ..."
                     />
                   </div>
@@ -258,7 +271,7 @@ export default function JoinPage() {
                 {/* Métiers: plusieurs, le premier choisi est le principal */}
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-stone-500 uppercase">
-                    Vos métiers <span className="font-normal normal-case text-stone-400">(le premier choisi est le principal)</span>
+                    {t("form.trades")} <span className="font-normal normal-case text-stone-400">{t("form.tradesHint")}</span>
                   </label>
                   {/* Les métiers du serveur (P1-10): un mot qu'il ne connaît pas est refusé. */}
                   <div className="flex flex-wrap gap-2">
@@ -277,7 +290,7 @@ export default function JoinPage() {
                           }`}
                         >
                           {main ? "★ " : ""}
-                          {trade.code === "AUTRE" ? "Autre / polyvalent" : trade.label}
+                          {trade.code === "AUTRE" ? t("form.tradeOther") : tradeLabel(trade.code, locale)}
                         </button>
                       );
                     })}
@@ -286,7 +299,7 @@ export default function JoinPage() {
 
                 {/* Expérience */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-stone-500 uppercase">Années d'expérience</label>
+                  <label className="text-xs font-bold text-stone-500 uppercase">{t("form.years")}</label>
                   <input
                     name="yearsExperience"
                     type="number"
@@ -297,22 +310,22 @@ export default function JoinPage() {
                     value={formData.yearsExperience}
                     onChange={handleChange}
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all sm:w-40"
-                    placeholder="Ex: 5"
+                    placeholder={t("form.yearsPlaceholder")}
                   />
                 </div>
 
                 {/* Zones d'intervention */}
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-stone-500 uppercase">
-                    Où acceptez-vous de travailler ? <span className="font-normal normal-case text-stone-400">(une zone au moins)</span>
+                    {t("form.zones")} <span className="font-normal normal-case text-stone-400">{t("form.zonesHint")}</span>
                   </label>
 
                   {zonesFailed ? (
-                    <p className="text-sm text-red-600">La liste des zones n'a pas pu être chargée. Rechargez la page.</p>
+                    <p className="text-sm text-red-600">{t("form.zonesFailed")}</p>
                   ) : zones === null ? (
-                    <p className="flex items-center gap-2 text-sm text-stone-400"><Loader2 className="h-4 w-4 animate-spin" /> Chargement…</p>
+                    <p className="flex items-center gap-2 text-sm text-stone-400"><Loader2 className="h-4 w-4 animate-spin" /> {tc("loading")}</p>
                   ) : zones.length === 0 ? (
-                    <p className="text-sm text-red-600">Aucune zone n'est proposée pour le moment. Réessayez plus tard ou contactez-nous.</p>
+                    <p className="text-sm text-red-600">{t("form.zonesNone")}</p>
                   ) : (
                     <div className="flex max-h-44 flex-wrap gap-2 overflow-y-auto rounded-xl border border-stone-100 bg-stone-50 p-2">
                       {zones.map((zone) => {
@@ -339,13 +352,13 @@ export default function JoinPage() {
                 {/* Documents */}
                 <div className="space-y-3">
                   <label className="text-xs font-bold text-stone-500 uppercase">
-                    Documents <span className="font-normal normal-case text-stone-400">(photo ou PDF, {MAX_DOCUMENT_MB} Mo max)</span>
+                    {t("form.documents")} <span className="font-normal normal-case text-stone-400">{t("form.documentsHint", { mb: MAX_DOCUMENT_MB })}</span>
                   </label>
 
                   {([
-                    ["identity", "Pièce d'identité (obligatoire)", true],
-                    ["company", "Document de l'entreprise (facultatif)", false],
-                    ["insurance", "Attestation d'assurance (facultatif)", false],
+                    ["identity", t("form.identity"), true],
+                    ["company", t("form.companyDocument"), false],
+                    ["insurance", t("form.insuranceDocument"), false],
                   ] as const).map(([key, label, required]) => (
                     <div key={key} className="rounded-xl border border-dashed border-stone-300 bg-stone-50 p-3">
                       <div className="mb-1.5 flex items-center gap-2 text-sm font-medium text-stone-700">
@@ -356,26 +369,26 @@ export default function JoinPage() {
                         accept={DOCUMENT_ACCEPT}
                         required={required}
                         onChange={pickFile(key)}
-                        className="block w-full text-sm text-stone-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-950 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-blue-900"
+                        className="block w-full text-sm text-stone-600 file:me-3 file:rounded-lg file:border-0 file:bg-blue-950 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-blue-900"
                       />
                     </div>
                   ))}
-                  <p className="text-xs text-stone-400">Vos documents ne sont vus que par notre équipe de vérification.</p>
+                  <p className="text-xs text-stone-400">{t("form.documentsNote")}</p>
                 </div>
 
                 {/* Entreprise (facultatif) */}
                 <details className="rounded-xl border border-stone-200 bg-white p-4">
-                  <summary className="cursor-pointer text-sm font-medium text-stone-600">Entreprise (facultatif)</summary>
+                  <summary className="cursor-pointer text-sm font-medium text-stone-600">{t("form.companySummary")}</summary>
                   <div className="mt-4 space-y-4">
-                    <input name="companyName" value={formData.companyName} onChange={handleChange} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="Nom de l'entreprise" />
-                    <input name="companyNumber" value={formData.companyNumber} onChange={handleChange} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="Matricule fiscal / registre de commerce" />
-                    <input name="insuranceNumber" value={formData.insuranceNumber} onChange={handleChange} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder="N° de police d'assurance" />
+                    <input name="companyName" value={formData.companyName} onChange={handleChange} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder={t("form.companyName")} />
+                    <input name="companyNumber" value={formData.companyNumber} onChange={handleChange} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder={t("form.companyNumber")} />
+                    <input name="insuranceNumber" value={formData.insuranceNumber} onChange={handleChange} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all" placeholder={t("form.insuranceNumber")} />
                   </div>
                 </details>
 
                 {/* Description */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-stone-500 uppercase">Pourquoi vous ?</label>
+                  <label className="text-xs font-bold text-stone-500 uppercase">{t("form.bio")}</label>
                   <textarea
                     name="bio"
                     rows={3}
@@ -383,7 +396,8 @@ export default function JoinPage() {
                     value={formData.bio}
                     onChange={handleChange}
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all"
-                    placeholder="Certifications, spécialités, réalisations..."
+                    placeholder={t("form.bioPlaceholder")}
+                    dir={typedDir(formData.bio)}
                   />
                 </div>
 
@@ -406,11 +420,11 @@ export default function JoinPage() {
                 >
                   {isLoading ? (
                     <>
-                      <Loader2 className="h-5 w-5 animate-spin" /> Traitement...
+                      <Loader2 className="h-5 w-5 animate-spin" /> {t("form.processing")}
                     </>
                   ) : (
                     <>
-                      Envoyer ma candidature <ArrowRight className="h-5 w-5" />
+                      {t("form.submit")} <ArrowRight className="h-5 w-5 rtl:-scale-x-100" />
                     </>
                   )}
                 </button>

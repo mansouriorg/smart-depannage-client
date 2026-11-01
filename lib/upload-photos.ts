@@ -1,6 +1,6 @@
 import { failureOf } from "@/lib/guest-errors";
 import { photosForm, preparePhoto } from "@/lib/photos";
-import { callApi, photoBatches, routes, type Send } from "@/lib/shared";
+import { DEFAULT_LOCALE, callApi, photoBatches, routes, type Locale, type Send } from "@/lib/shared";
 
 /**
  * Sends the pictures five at a time, with `sendSlow` (a longer timeout than other calls: pictures are slow on a phone
@@ -13,6 +13,7 @@ export async function uploadPhotos(
   token: string,
   files: File[],
   onProgress: (done: number, total: number) => void,
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<{ sent: number; pending: File[]; refused: string[] }> {
   const ready: File[] = [];
 
@@ -33,7 +34,7 @@ export async function uploadPhotos(
       refused.push(...answer.refused.map((item) => item.reason));
     } catch (error) {
       // A refusal (closed request, too many pictures) will not change by trying again; a network failure may.
-      const failure = failureOf(error);
+      const failure = failureOf(error, undefined, locale);
 
       if (failure.kind === "refused") refused.push(failure.message);
       else pending.push(...batch);
